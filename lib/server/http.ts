@@ -31,7 +31,7 @@ export async function body<T extends z.ZodTypeAny>(req: Request, schema: T): Pro
 
 export function isAllowedOrigin(origin: string | null, requestUrl: { origin: string; port?: string }): boolean {
   if (!origin) return true;
-  const expected = process.env.APP_ORIGIN || requestUrl.origin;
+  const expected = process.env.APP_ORIGIN || process.env.RENDER_EXTERNAL_URL || requestUrl.origin;
   if (origin === expected || origin === requestUrl.origin) return true;
   try {
     const originUrl = new URL(origin);

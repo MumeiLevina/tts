@@ -46,7 +46,7 @@ async function sendResetEmail(email: string, token: string) {
   const apiKey = process.env.RESEND_API_KEY;
   const from = process.env.AUTH_FROM_EMAIL;
   if (!apiKey || !from) return false;
-  const origin = process.env.APP_ORIGIN || "http://localhost:3000";
+  const origin = process.env.APP_ORIGIN || process.env.RENDER_EXTERNAL_URL || "http://localhost:3000";
   const link = `${origin}/auth/reset?token=${encodeURIComponent(token)}`;
   const response = await fetch("https://api.resend.com/emails", {
     method: "POST",

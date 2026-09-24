@@ -1,12 +1,11 @@
-import { existsSync, copyFileSync, mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, copyFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
-import { resolve, dirname } from "node:path";
+import { resolve } from "node:path";
 if (!existsSync(".env")) copyFileSync(".env.example", ".env");
 process.loadEnvFile(".env");
-if (process.env.DATABASE_URL?.startsWith("file:")) {
-  const path = resolve("prisma", process.env.DATABASE_URL.slice(5));
-  mkdirSync(dirname(path), { recursive: true });
-  if (!existsSync(path)) writeFileSync(path, "", { flag: "wx" });
+if (!process.env.DATABASE_URL?.startsWith("postgresql://") || !process.env.DIRECT_URL?.startsWith("postgresql://")) {
+  console.error("Configure DATABASE_URL and DIRECT_URL for PostgreSQL in .env before running db:setup.");
+  process.exit(1);
 }
 if (process.platform === "win32" && existsSync("node_modules/@prisma/engines/schema-engine-windows.exe")) {
   process.env.PRISMA_SCHEMA_ENGINE_BINARY = resolve("node_modules/@prisma/engines/schema-engine-windows.exe");

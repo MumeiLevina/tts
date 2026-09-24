@@ -1,6 +1,6 @@
 # FitCraft
 
-Website thời trang dùng Next.js 14, TypeScript, Prisma 6 và SQLite cho môi trường phát triển.
+Website thời trang dùng Next.js 14, TypeScript, Prisma 6 và PostgreSQL (Supabase). Xem [hướng dẫn triển khai Render](docs/render.md).
 
 ## Chạy trên máy
 
@@ -14,7 +14,7 @@ npm run dev
 
 Mở http://localhost:3000. Lệnh setup tạo `.env` từ `.env.example` nếu chưa có, sinh Prisma Client, áp dụng migration và thêm 11 sản phẩm mẫu. Seed chạy lại không ghi đè sản phẩm, giá hoặc tồn kho đã chỉnh. Không sử dụng thông tin chất liệu, bảng size và ảnh minh họa để bán hàng thật khi chưa xác minh.
 
-Database nằm tại `prisma/dev.db`, không đưa vào Git. Sao lưu file này khi cần giữ dữ liệu. Thay `APP_ORIGIN` nếu đổi cổng hoặc tên miền; phải khớp chính xác origin, không có dấu / cuối. Khi chạy production, cookie dùng Secure và website cần HTTPS.
+Database nằm trên Supabase. Điền `DATABASE_URL` và `DIRECT_URL` trong `.env` trước khi chạy setup. Thay `APP_ORIGIN` nếu đổi cổng hoặc tên miền; phải khớp chính xác origin, không có dấu / cuối. Khi chạy production, cookie dùng Secure và website cần HTTPS.
 
 ## Chức năng đã chạy
 
@@ -68,7 +68,7 @@ npm test
 npm run build
 ```
 
-`npm test` tạo database riêng trong thư mục tạm hệ điều hành, áp dụng migration và chạy kiểm thử tích hợp qua các route handler. Không chạm vào database phát triển; file tạm được giữ để điều tra khi test lỗi. Các bài kiểm thử bao gồm tranh mua món cuối cùng, rollback tồn kho, idempotency, hủy đơn, quyền truy cập, trả hàng, dữ liệu sai và giới hạn request.
+`npm test` tạo SQLite riêng trong `test-results/`, đồng bộ schema và chạy kiểm thử tích hợp qua các route handler, sau đó phục hồi Prisma Client PostgreSQL. Không chạm vào Supabase; file tạm được giữ để điều tra khi test lỗi. Các bài kiểm thử bao gồm tranh mua món cuối cùng, rollback tồn kho, idempotency, hủy đơn, quyền truy cập, trả hàng, dữ liệu sai và giới hạn request.
 
 Nếu Windows sandbox chặn tiến trình con với EPERM, cần cho phép chạy Prisma/esbuild/Next.js từ terminal được cấp quyền. Prisma lần đầu cần tải engine từ mạng.
 
