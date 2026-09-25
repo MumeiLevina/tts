@@ -7,7 +7,10 @@ import { slotsFor } from "../../../../lib/canvas/outfit-layouts";
 import type { OutfitSlot, ResolvedOutfit, ResolvedProduct } from "../../../../lib/outfit/types";
 import styles from "./OutfitCanvas.module.css";
 
-type Props = { outfit: ResolvedOutfit; width?: number; height?: number; className?: string };
+export type CanvasOutfit = Omit<ResolvedOutfit, "items"> & {
+  items: Omit<ResolvedOutfit["items"], "shoes"> & { shoes: ResolvedProduct | null };
+};
+type Props = { outfit: CanvasOutfit; width?: number; height?: number; className?: string };
 type Layer = { product: ResolvedProduct; slot: ReturnType<typeof slotsFor>[number] };
 
 function FallbackImage({ product }: { product: ResolvedProduct }) {

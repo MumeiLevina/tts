@@ -238,17 +238,7 @@ export default function Home() {
 
   // Try on a product from catalog in Fitting Room
   const handleTryOnProduct = (product: ProductItem) => {
-    const existingIndex = currentOutfit.findIndex(item => item.category === product.category);
-    if (existingIndex !== -1) {
-      const updated = [...currentOutfit];
-      updated[existingIndex] = { ...product };
-      setCurrentOutfit(updated);
-    } else {
-      setCurrentOutfit(prev => [...prev, { ...product }]);
-    }
-    showToast(`Đã đưa "${product.name}" vào phòng thử đồ!`);
-    const el = document.getElementById("stylist");
-    if (el) el.scrollIntoView({ behavior: "smooth" });
+    window.location.href = `/fitting-room?productId=${encodeURIComponent(product.id)}`;
   };
 
   // Curated look apply
@@ -365,8 +355,7 @@ export default function Home() {
             <nav className="mobile-nav-links">
               <a href="/fitting-room" onClick={() => setIsMobileMenuOpen(false)} className="mobile-nav-highlight">
                 <Sparkles size={18} />
-                <span>Phòng phối đồ AI 3s</span>
-                <span className="mobile-pill">Hot</span>
+                <span>Phòng phối đồ</span>
               </a>
               <a href="#looks" onClick={() => setIsMobileMenuOpen(false)}>
                 <span>Bộ sưu tập (Lookbook)</span>
@@ -485,7 +474,7 @@ export default function Home() {
               className="cta-outline"
               href="/fitting-room?upload=1"
             >
-              <Camera size={16} strokeWidth={2.2} /> Thử đồ với ảnh của tôi
+              <Camera size={16} strokeWidth={2.2} /> Xem trước với ảnh của tôi
             </a>
           </div>
         </div>
@@ -527,8 +516,8 @@ export default function Home() {
               <Sparkles size={20} />
             </div>
             <div className="fc-prop-text">
-              <strong>AI Stylist phối đồ 3 giây</strong>
-              <span>Gợi ý chuẩn gu theo dịp & ngân sách</span>
+              <strong>Stylist theo dịp và ngân sách</strong>
+              <span>Gợi ý từ những sản phẩm đang còn hàng</span>
             </div>
           </div>
           <div className="fc-prop-card">

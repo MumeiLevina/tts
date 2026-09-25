@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useMemo } from "react";
 import {
   ArrowLeft,
   ArrowRight,
@@ -21,13 +21,15 @@ import AuthMenu from "../components/AuthMenu";
 import ComboDetailModal, { ComboLookData } from "../components/ComboDetailModal";
 import { curatedCombos } from "../../lib/client/combos";
 import { api, money } from "../../lib/client/api";
+import OutfitCanvas, { CanvasOutfit } from "../features/ai-stylist/components/OutfitCanvas";
+import type { OutfitSlot, ResolvedProduct } from "../../lib/outfit/types";
 
 export interface ProductItem {
   id: string;
   name: string;
   price: number;
   priceFormatted: string;
-  category: "TOP" | "BOTTOM" | "OUTERWEAR" | "ACCESSORY" | "FOOTWEAR";
+  category: "TOP" | "BOTTOM" | "SKIRT" | "DRESS" | "OUTERWEAR" | "ACCESSORY" | "FOOTWEAR";
   variants: { id: string; size: string; color: string; stock: number }[];
   selectedVariantId?: string;
   cartLineId?: string;
@@ -60,6 +62,22 @@ const defaultPills = [
   "Phong cách tối giản Minimalist"
 ];
 
+const canvasCategory: Record<ProductItem["category"], OutfitSlot> = {
+  TOP: "top", BOTTOM: "bottom", SKIRT: "bottom", DRESS: "dress",
+  OUTERWEAR: "outerwear", ACCESSORY: "accessory", FOOTWEAR: "shoes"
+};
+
+function canvasProduct(product: ProductItem): ResolvedProduct {
+  return {
+    id: product.id, slug: product.id, name: product.name, brand: product.brand || "FitCraft Studio",
+    category: canvasCategory[product.category], sourceCategory: product.category, subcategory: null,
+    price: product.price, imageUrl: product.image, transparentImageUrl: null, renderImageUrl: product.image,
+    styles: [], tags: [],
+    colors: Array.from(new Map(product.variants.map(variant => [variant.color, { name: variant.color, hex: "#d8d2c8" }])).values()),
+    variants: product.variants.map(variant => ({ ...variant, colorHex: "#d8d2c8" }))
+  };
+}
+
 export default function FittingRoomPage() {
   const [currentOutfit, setCurrentOutfit] = useState<ProductItem[]>([]);
   const [shopProducts, setShopProducts] = useState<ProductItem[]>([]);
@@ -88,10 +106,32 @@ export default function FittingRoomPage() {
   const [isSaved, setIsSaved] = useState(false);
   const [savedOutfitId, setSavedOutfitId] = useState("");
   const [toastMsg, setToastMsg] = useState<string | null>(null);
+  const [visualMode, setVisualMode] = useState<"canvas" | "preview">("canvas");
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const chatLock = useRef(false);
   const cartLock = useRef(false);
+  const pinnedProductId = useRef("");
+  const hasUserMessage = chatMessages.some(message => message.sender === "user");
+
+  const canvasOutfit = useMemo<CanvasOutfit | null>(() => {
+    if (!currentOutfit.length) return null;
+    const products = currentOutfit.map(canvasProduct);
+    const one = (slot: OutfitSlot) => products.find(product => product.category === slot) || null;
+    const dress = one("dress");
+    return {
+      id: currentOutfit.map(product => product.id).join("-"), name: "Bộ phối hiện tại",
+      layout: dress ? "dress_flatlay_01" : "minimal_flatlay_01",
+      items: {
+        top: one("top"), bottom: one("bottom"), dress, jumpsuit: one("jumpsuit"),
+        outerwear: one("outerwear"), shoes: one("shoes"),
+        accessories: products.filter(product => product.category === "accessory")
+      },
+      stylistAdvice: "Ảnh flat-lay được tạo từ các sản phẩm trong bộ phối hiện tại.",
+      confidence: 1,
+      totalPrice: currentOutfit.reduce((total, product) => total + product.price, 0)
+    };
+  }, [currentOutfit]);
 
   function showToast(text: string) {
     setToastMsg(text);
@@ -142,9 +182,22 @@ export default function FittingRoomPage() {
       });
       setShopProducts(mapped);
 
+      const requestedProductId = typeof window !== "undefined"
+        ? new URLSearchParams(window.location.search).get("productId")
+        : null;
+      const requestedProduct = requestedProductId ? mapped.find(product => product.id === requestedProductId) : undefined;
+
       // Default outfit: top-1, bottom-1, acc-1
       const defaultItems = mapped.filter(p => ["top-1", "bottom-1", "acc-1"].includes(p.id));
-      if (defaultItems.length > 0) {
+      if (requestedProduct) {
+        pinnedProductId.current = requestedProduct.id;
+        const supportingItems = defaultItems.filter(item => item.category !== requestedProduct.category);
+        setCurrentOutfit([requestedProduct, ...supportingItems].slice(0, 3));
+        const pinnedMessage = `Mình đã giữ ${requestedProduct.name} trong bộ phối. Bạn có thể đổi dịp mặc hoặc ngân sách để nhận gợi ý khác.`;
+        setChatMessages(previous => previous.some(message => message.text === pinnedMessage)
+          ? previous
+          : [...previous, { sender: "assistant", text: pinnedMessage }]);
+      } else if (defaultItems.length > 0) {
         setCurrentOutfit(defaultItems);
       } else {
         setCurrentOutfit(mapped.slice(0, 3));
@@ -193,12 +246,12 @@ export default function FittingRoomPage() {
     setChatMessages(prev => [...prev, { sender: "user", text: userMsg }]);
 
     try {
-      const res = await api<{ message: string; suggestions: string[]; outfit: { id: string; name: string; price: number; category: string; image: string; variants: { id: string; size: string; color: string; stock: number }[] }[] }>("stylist/chat", {
+      const res = await api<{ message?: string; rationale: string; suggestions?: string[]; outfit: { id: string; name: string; price: number; category: string; image: string; variants: { id: string; size: string; color: string; stock: number }[] }[] }>("stylist/chat", {
         method: "POST",
         body: JSON.stringify({ message: userMsg })
       });
 
-      setChatMessages(prev => [...prev, { sender: "assistant", text: res.message }]);
+      setChatMessages(prev => [...prev, { sender: "assistant", text: res.rationale || res.message || "Mình chưa tìm được bộ phối phù hợp." }]);
       if (res.suggestions?.length) setSuggestionPills(res.suggestions);
 
       if (res.outfit?.length) {
@@ -217,9 +270,21 @@ export default function FittingRoomPage() {
             availableSizes: Array.from(new Set(p.variants.map(v => v.size)))
           };
         });
+        const pinnedProduct = pinnedProductId.current
+          ? shopProducts.find(product => product.id === pinnedProductId.current)
+          : undefined;
+        if (pinnedProduct && !mappedOutfit.some(product => product.id === pinnedProduct.id)) {
+          const sameCategoryIndex = mappedOutfit.findIndex(product => product.category === pinnedProduct.category);
+          if (sameCategoryIndex >= 0) mappedOutfit[sameCategoryIndex] = pinnedProduct;
+          else mappedOutfit.unshift(pinnedProduct);
+        }
         setCurrentOutfit(mappedOutfit);
+        setVisualMode("canvas");
         setIsSaved(false);
-        showToast("Đã cập nhật bộ phối đồ mới!");
+        showToast("Đã cập nhật bộ phối đồ mới.");
+      } else {
+        setCurrentOutfit([]);
+        setIsSaved(false);
       }
     } catch {
       setChatMessages(prev => [
@@ -439,20 +504,21 @@ export default function FittingRoomPage() {
         <div className="fitting-nav-left">
           <a href="/" className="fitting-back-link">
             <ArrowLeft size={16} />
-            <span>Về trang chủ</span>
+            <span className="fitting-back-text">Về trang chủ</span>
           </a>
           <span className="fitting-nav-divider">/</span>
           <div className="fitting-nav-brand">
-            <span className="fitting-badge">AI STYLIST</span>
-            <h1>Phòng Phối Đồ Trực Quan</h1>
+            <span className="fitting-badge">STYLIST</span>
+            <h1>Phòng phối đồ</h1>
           </div>
         </div>
 
         <div className="fitting-nav-right">
           <button
             className="fitting-icon-btn"
-            onClick={() => fileInputRef.current?.click()}
-            title="Tải ảnh toàn thân của bạn"
+            onClick={() => { setVisualMode("preview"); fileInputRef.current?.click(); }}
+            title="Chọn ảnh để xem trước trên thiết bị"
+            aria-label="Chọn ảnh để xem trước trên thiết bị"
           >
             <Camera size={16} />
             <span className="btn-text-desktop">Đổi ảnh của bạn</span>
@@ -499,7 +565,7 @@ export default function FittingRoomPage() {
             </div>
 
             {/* Quick Suggestion Pills */}
-            <div className="suggestion-pills-container">
+            {!hasUserMessage && <div className="suggestion-pills-container">
               <div className="suggestion-pills-label">
                 <Sparkles size={12} color="var(--coral)" /> Gợi ý phong cách nhanh:
               </div>
@@ -515,7 +581,7 @@ export default function FittingRoomPage() {
                   </button>
                 ))}
               </div>
-            </div>
+            </div>}
 
             {/* Chat Input */}
             <div className="chat-input-wrapper">
@@ -540,8 +606,16 @@ export default function FittingRoomPage() {
           </section>
 
           {/* CỘT 2: KHUNG HIỂN THỊ NGƯỜI MẪU & TRY-ON CANVAS */}
-          <section className="canvas-panel" aria-label="Phòng thử đồ ảo">
-            <TryOnPreviewCanvas
+          <section className="canvas-panel" aria-label="Hình ảnh bộ phối">
+            <div className="stylist-visual-switch" role="group" aria-label="Chọn kiểu hiển thị bộ phối">
+              <button type="button" aria-pressed={visualMode === "canvas"} onClick={() => setVisualMode("canvas")}>Bộ phối canvas</button>
+              <button type="button" aria-pressed={visualMode === "preview"} onClick={() => setVisualMode("preview")}>Ảnh xem trước</button>
+            </div>
+            {visualMode === "canvas" ? (
+              canvasOutfit
+                ? <OutfitCanvas outfit={canvasOutfit} className="fitting-outfit-canvas" />
+                : <div className="canvas-empty-state" role="status">Stylist đang chuẩn bị hình ảnh bộ phối…</div>
+            ) : <TryOnPreviewCanvas
               modelAngles={modelAngles}
               currentAngleIndex={angleIndex}
               onCycleAngle={() => {
@@ -552,35 +626,28 @@ export default function FittingRoomPage() {
               onUploadUserPhoto={file => {
                 setUserPhoto(URL.createObjectURL(file));
                 setHasUploadedUserPhoto(true);
-                showToast("Đã tải ảnh lên thành công!");
+                setVisualMode("preview");
+                showToast("Đã mở ảnh xem trước.");
               }}
               onSelectSamplePhoto={url => {
                 setUserPhoto(url);
                 setHasUploadedUserPhoto(true);
-                showToast("Đã áp dụng người mẫu thử nghiệm!");
+                setVisualMode("preview");
+                showToast("Đã mở ảnh mẫu xem trước.");
               }}
               isSaved={isSaved}
               onToggleSave={() => void saveOutfit()}
-              onDownloadHD={() => showToast("Chưa có ảnh AI để tải xuống.")}
-              onShare={async () => {
-                try {
-                  await navigator.clipboard.writeText(window.location.href);
-                  showToast("Đã sao chép liên kết phòng thử đồ!");
-                } catch {
-                  showToast("Không thể sao chép liên kết.");
-                }
-              }}
-            />
+            />}
           </section>
 
           {/* CỘT 3: SHOP THE LOOK */}
           <section className="shop-panel" aria-label="Danh sách sản phẩm trong set">
             <div className="shop-header">
-              <div>
-                <strong>Món Đồ Trong Set</strong>
+              <div className="shop-header-title">
+                <strong>Món đồ trong set</strong>
                 <span className="item-count-tag">{currentOutfit.length} món</span>
               </div>
-              <div style={{ display: "flex", gap: "6px" }}>
+              <div className="shop-header-actions">
                 <button
                   className="btn-refresh-outfit"
                   onClick={() => setViewingCombo(curatedCombos[0])}

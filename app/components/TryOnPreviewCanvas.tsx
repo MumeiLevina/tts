@@ -333,7 +333,7 @@ export const TryOnPreviewCanvas: React.FC<TryOnPreviewCanvasProps> = ({
                   <Camera size={20} />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-ink">Thử đồ trên vóc dáng của bạn</h3>
+                  <h3 className="text-base font-bold text-ink">Xem ảnh của bạn trong phòng phối</h3>
                   <p className="text-xs text-muted">
                     Ảnh hiện chỉ dùng để xem trước trên thiết bị. Chức năng ghép trang phục AI chưa được kết nối.
                   </p>

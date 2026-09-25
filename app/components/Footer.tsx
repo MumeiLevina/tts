@@ -59,7 +59,7 @@ export default function Footer() {
               <i /> fitcraft
             </a>
             <p className="fc-footer-desc">
-              Thương hiệu thời trang ứng dụng trí tuệ nhân tạo, mang trải nghiệm phòng thử đồ ảo và stylist cá nhân đến ngay tầm tay bạn.
+              Không gian khám phá trang phục và nhận gợi ý phối đồ từ những sản phẩm đang có tại FitCraft.
             </p>
             <div className="fc-footer-contact">
               <div className="fc-contact-row">
@@ -91,28 +91,22 @@ export default function Footer() {
 
           {/* Quick Links: Chính sách */}
           <div className="fc-footer-col">
-            <h4>Chính Sách & Hỗ Trợ</h4>
+            <h4>Hỗ trợ mua sắm</h4>
             <ul className="fc-footer-links">
-              <li><a href="/orders">Chính sách đổi trả 14 ngày</a></li>
-              <li><a href="/#products">Bảng quy chuẩn size chuẩn Việt</a></li>
-              <li><a href="/#closet">Chính sách bảo mật hình ảnh cá nhân</a></li>
-              <li><a href="/orders">Hướng dẫn thanh toán COD</a></li>
+              <li><a href="/#products">Xem size và tồn kho từng sản phẩm</a></li>
+              <li><a href="/orders">Theo dõi và quản lý đơn hàng</a></li>
+              <li><a href="/auth/login">Đăng nhập để giữ lịch sử mua sắm</a></li>
+              <li><a href="mailto:cskh@fitcraft.vn">Liên hệ hỗ trợ qua email</a></li>
               <li><a href="/admin/login">Cổng thông tin quản trị viên</a></li>
             </ul>
           </div>
 
           {/* Newsletter / App info */}
           <div className="fc-footer-col newsletter-col">
-            <h4>Nhận Ưu Đãi & Xu Hướng</h4>
-            <p className="fc-newsletter-sub">Đăng ký nhận tin các bộ sưu tập giới hạn và mẹo phối đồ từ chuyên gia mỗi tuần.</p>
-            <form className="fc-newsletter-form" onSubmit={e => { e.preventDefault(); alert("Cảm ơn bạn đã đăng ký nhận bản tin FitCraft!"); }}>
-              <input type="email" placeholder="Nhập địa chỉ email của bạn..." required />
-              <button type="submit" className="cta-primary">Đăng ký</button>
-            </form>
+            <h4>Thanh toán</h4>
+            <p className="fc-newsletter-sub">Hiện FitCraft nhận thanh toán khi giao hàng. Tổng tiền và phí giao hàng được xác nhận trước khi đặt đơn.</p>
             <div className="fc-payment-tags">
               <span className="fc-badge-pay">COD</span>
-              <span className="fc-badge-pay">Chuyển khoản</span>
-              <span className="fc-badge-pay">Thẻ ATM / Visa</span>
             </div>
           </div>
         </div>
