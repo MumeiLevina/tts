@@ -98,7 +98,7 @@ function OutfitResult({ outfit, index }: { outfit: ResolvedOutfit; index: number
   const [pending, setPending] = useState<string | null>(null);
   const [cartMessage, setCartMessage] = useState<{ tone: "success" | "error"; text: string } | null>(null);
 
-  async function addProducts(items: ResolvedOutfit["items"]["shoes"][]) {
+  async function addProducts(items: NonNullable<ResolvedOutfit["items"]["shoes"]>[]) {
     if (pending) return;
     let lines;
     try { lines = buildOutfitCartLines(items, selectedVariants); }

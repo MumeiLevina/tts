@@ -24,11 +24,10 @@ function summary(input: RecommendOutfitInput): OutfitRequestSummary {
 
 function hasCompleteCore(candidates: ProductStylingMetadata[], budget: number | null) {
   const has = (category: ProductStylingMetadata["category"]) => candidates.some(candidate => candidate.category === category);
-  if (!has("shoes") || !((has("top") && has("bottom")) || has("dress") || has("jumpsuit"))) return false;
+  if (!((has("top") && has("bottom")) || has("dress") || has("jumpsuit"))) return false;
   if (budget === null) return true;
   const cheapest = (category: ProductStylingMetadata["category"]) => Math.min(...candidates.filter(candidate => candidate.category === category).map(candidate => candidate.price));
-  const shoes = cheapest("shoes");
-  return cheapest("top") + cheapest("bottom") + shoes <= budget || cheapest("dress") + shoes <= budget || cheapest("jumpsuit") + shoes <= budget;
+  return cheapest("top") + cheapest("bottom") <= budget || cheapest("dress") <= budget || cheapest("jumpsuit") <= budget;
 }
 
 type Dependencies = { provider?: AIProvider; findCandidates?: typeof findOutfitCandidates; resolve?: typeof resolveSelectedOutfits };

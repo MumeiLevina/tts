@@ -39,7 +39,7 @@ interface ComboDetailModalProps {
   isOpen: boolean;
   onClose: () => void;
   onAdded: (cart: DetailCart, checkout: boolean) => void;
-  onTryOn: (title: string) => void;
+  onTryOn?: (title: string) => void;
 }
 
 export default function ComboDetailModal({ combo, isOpen, ...props }: ComboDetailModalProps) {

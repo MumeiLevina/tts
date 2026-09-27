@@ -1,5 +1,5 @@
 import { z } from "zod";
-export const category = z.enum(["TOP", "BOTTOM", "SKIRT", "DRESS", "OUTERWEAR", "FOOTWEAR", "ACCESSORY"]);
+export const category = z.enum(["TOP", "BOTTOM", "SKIRT", "DRESS", "OUTERWEAR", "SET", "JUMPSUIT", "FOOTWEAR", "BAG", "ACCESSORY"]);
 export const imageUrl = z.string().max(2048).url().refine(v => new URL(v).protocol === "https:", "Ảnh phải dùng HTTPS.");
 export const productSeason = z.enum(["spring", "summer", "autumn", "winter", "all-season"]);
 export const productOccasion = z.enum(["cafe", "work", "date", "party", "wedding", "beach", "travel", "casual", "formal"]);
@@ -11,7 +11,7 @@ export const productInput = z.object({
   subcategory: z.string().trim().min(1).max(80).optional(),
   description: z.string().trim().max(3000).default(""), material: z.string().trim().max(300).default(""),
   care: z.string().trim().max(500).default(""), style: z.string().trim().max(150).default("casual"),
-  pattern: productPattern.optional(), fit: productFit.optional(),
+  pattern: productPattern.optional(), fit: z.string().trim().min(1).max(80).optional(),
   season: z.array(productSeason).max(5).default([]).transform(values => Array.from(new Set(values))),
   occasion: z.array(productOccasion).max(12).default([]).transform(values => Array.from(new Set(values))),
   formality: z.number().int().min(0).max(5).optional(), transparentImageUrl: imageUrl.optional(),

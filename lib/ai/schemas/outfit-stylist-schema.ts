@@ -4,7 +4,7 @@ import { outfitLayouts } from "../../outfit/types";
 const id = z.string().trim().min(1).max(100);
 export const aiOutfitItemsSchema = z.object({
   top_id: id.nullable(), bottom_id: id.nullable(), dress_id: id.nullable(), jumpsuit_id: id.nullable(),
-  outerwear_id: id.nullable(), shoes_id: id, accessory_ids: z.array(id).max(4)
+  outerwear_id: id.nullable(), shoes_id: id.nullable(), accessory_ids: z.array(id).max(4)
 }).strict().superRefine((items, context) => {
   const separates = Boolean(items.top_id && items.bottom_id && !items.dress_id && !items.jumpsuit_id);
   const dress = Boolean(items.dress_id && !items.top_id && !items.bottom_id && !items.jumpsuit_id);
@@ -54,7 +54,7 @@ export function buildOutfitStylistJsonSchema(candidateIds: string[], numberOfOut
             required: ["top_id", "bottom_id", "dress_id", "jumpsuit_id", "outerwear_id", "shoes_id", "accessory_ids"],
             properties: {
               top_id: nullableCandidateId(ids), bottom_id: nullableCandidateId(ids), dress_id: nullableCandidateId(ids), jumpsuit_id: nullableCandidateId(ids), outerwear_id: nullableCandidateId(ids),
-              shoes_id: { type: "string", enum: ids }, accessory_ids: { type: "array", maxItems: 4, items: { type: "string", enum: ids } }
+              shoes_id: nullableCandidateId(ids), accessory_ids: { type: "array", maxItems: 4, items: { type: "string", enum: ids } }
             }
           },
           stylist_advice: { type: "string", minLength: 3, maxLength: 1000 },

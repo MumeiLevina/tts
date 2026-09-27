@@ -163,7 +163,7 @@ test("dynamic AI JSON Schema restricts every product slot to real candidate IDs"
   const schema = buildOutfitStylistJsonSchema(["top", "bottom", "shoe", "top"], 2) as StylistJsonSchema;
   assert.equal(schema.properties.outfits.maxItems, 2);
   const slots = schema.properties.outfits.items.properties.items.properties;
-  assert.deepEqual(slots.shoes_id.enum, ["top", "bottom", "shoe"]);
+  assert.deepEqual(slots.shoes_id.anyOf?.[0].enum, ["top", "bottom", "shoe"]);
   assert.deepEqual(slots.top_id.anyOf?.[0].enum, ["top", "bottom", "shoe"]);
   assert.deepEqual(slots.accessory_ids.items?.enum, ["top", "bottom", "shoe"]);
   assert.throws(() => buildOutfitStylistJsonSchema([]));
@@ -174,7 +174,7 @@ test("AI stylist system prompt treats user and catalog content as untrusted and 
   assert.match(OUTFIT_STYLIST_SYSTEM_PROMPT, /exact product IDs/i);
   assert.match(OUTFIT_STYLIST_SYSTEM_PROMPT, /Never invent product names, prices, stock/i);
   assert.match(OUTFIT_STYLIST_SYSTEM_PROMPT, /chain-of-thought/i);
-  assert.match(OUTFIT_STYLIST_SYSTEM_PROMPT, /top, one bottom, and one pair of shoes/i);
+  assert.match(OUTFIT_STYLIST_SYSTEM_PROMPT, /Shoes, outerwear and accessories are optional/i);
 });
 
 function validatorFixture() {
@@ -280,10 +280,10 @@ test("recommendation fails before provider calls when catalog has no products or
   const input = recommendOutfitInputSchema.parse({ request: "Đi chơi", numberOfOutfits: 1 });
   const emptyFinder = async () => ({ candidates: [], eligibleCount: 0, scannedCount: 0, limit: 40 });
   await assert.rejects(() => recommendOutfits(input, { provider, findCandidates: emptyFinder }), (error: unknown) => error instanceof RecommendationError && error.code === "NO_PRODUCTS" && error.status === 422);
-  const incompleteFinder = async () => ({ candidates: validatorFixture().filter(item => item.category !== "shoes"), eligibleCount: 5, scannedCount: 5, limit: 40 });
+  const incompleteFinder = async () => ({ candidates: validatorFixture().filter(item => ["top", "shoes", "accessory"].includes(item.category)), eligibleCount: 5, scannedCount: 5, limit: 40 });
   await assert.rejects(() => recommendOutfits(input, { provider, findCandidates: incompleteFinder }), (error: unknown) => error instanceof RecommendationError && error.code === "INSUFFICIENT_PRODUCTS");
-  const lowBudget = recommendOutfitInputSchema.parse({ request: "Đi chơi", numberOfOutfits: 1, context: { budget: 1000000 } });
-  await assert.rejects(() => recommendOutfits(lowBudget, { provider }), (error: unknown) => error instanceof RecommendationError && error.code === "INSUFFICIENT_PRODUCTS");
+  const lowBudget = recommendOutfitInputSchema.parse({ request: "Đi chơi", numberOfOutfits: 1, context: { budget: 1000 } });
+  await assert.rejects(() => recommendOutfits(lowBudget, { provider, findCandidates: async () => ({ candidates: validatorFixture(), eligibleCount: 6, scannedCount: 6, limit: 40 }) }), (error: unknown) => error instanceof RecommendationError && error.code === "INSUFFICIENT_PRODUCTS");
   assert.equal(providerCalls, 0);
 });
 
@@ -355,7 +355,7 @@ test("product resolver batch-resolves trusted DTOs, current prices, render image
     assert.equal(resolved.totalPrice, 960000);
     assert.equal(resolved.items.top?.renderImageUrl, "https://example.com/top-transparent.png");
     assert.equal(resolved.items.bottom?.renderImageUrl, `https://example.com/${prefix}bottom.jpg`);
-    assert.equal(resolved.items.shoes.category, "shoes");
+    assert.equal(resolved.items.shoes?.category, "shoes");
     assert.equal(resolved.items.top?.variants.length, 1);
     assert.equal(resolved.items.top?.variants[0].stock, 2);
   } finally { await db.product.deleteMany({ where: { id: { startsWith: prefix } } }); }
@@ -485,10 +485,40 @@ test("studio AI sends real images, validates structured proposals, handles missi
     assert.equal(result.drafts[0].engine, "openai-vision");
     assert.equal(result.drafts[0].items.length, 2);
     await assert.rejects(() => generateCombos(input, "vision-test-bad"), /ngoài danh sách/);
-    assert.equal(calls, 2);
+    assert.equal(calls, 3);
   } finally {
     globalThis.fetch = previousFetch;
     if (previousKey === undefined) delete process.env.OPENAI_API_KEY; else process.env.OPENAI_API_KEY = previousKey;
+  }
+});
+
+test("studio keeps valid AI proposals and retries incomplete proposals without partial writes", async () => {
+  const top = (await studioUpload("Retry top")).data.item;
+  const bottom = (await studioUpload("Retry bottom", "BOTTOM")).data.item;
+  const input = { itemIds: [top.id, bottom.id], brief: "Minimal outfit", budget: 500000, mode: "ai" as const };
+  const oldKey = process.env.OPENAI_API_KEY, oldFetch = globalThis.fetch;
+  const proposal = (itemIds: string[]) => ({ name: "Valid outfit", description: "A simple outfit", rationale: "Matching pieces", itemIds });
+  const reply = (suggestions: ReturnType<typeof proposal>[]) => new Response(JSON.stringify({ status: "completed", output: [{ content: [{ type: "output_text", text: JSON.stringify({ suggestions }) }] }] }));
+  try {
+    process.env.OPENAI_API_KEY = "test-key";
+    let calls = 0;
+    const before = await db.comboDraft.count();
+    globalThis.fetch = async () => { calls++; return reply([proposal([top.id]), proposal(input.itemIds)]); };
+    await generateCombos(input, "partial-valid-proposals");
+    assert.equal(calls, 1);
+    assert.equal(await db.comboDraft.count(), before + 1);
+    calls = 0;
+    globalThis.fetch = async (_url, init) => {
+      calls++;
+      if (calls === 2) assert.match(String(init?.body), /Previous proposals failed server validation/);
+      return reply([proposal(calls === 1 ? [top.id] : input.itemIds)]);
+    };
+    await generateCombos(input, "retry-invalid-proposals");
+    assert.equal(calls, 2);
+    assert.equal(await db.comboDraft.count(), before + 2);
+  } finally {
+    globalThis.fetch = oldFetch;
+    if (oldKey === undefined) delete process.env.OPENAI_API_KEY; else process.env.OPENAI_API_KEY = oldKey;
   }
 });
 
@@ -705,9 +735,9 @@ test("shop wardrobe requires an account, toggles idempotently, filters live meta
     assert.ok(outfit.reasons.length);
   }
   assert.equal((await owner("GET", "personal-wardrobe/recommendations?limit=100")).status, 400);
-  // Removing footwear must immediately prevent incomplete recommendations.
+  // Removing footwear must still allow core outfits.
   await owner("DELETE", "personal-wardrobe/wp-shoe");
-  assert.equal((await owner("GET", "personal-wardrobe/recommendations")).data.outfits.length, 0);
+  assert.ok((await owner("GET", "personal-wardrobe/recommendations")).data.outfits.length > 0);
   assert.equal((await owner("DELETE", "personal-wardrobe/wp-shoe")).status, 200);
   await db.product.update({ where: { id: "wp-shoe" }, data: { active: false } });
   assert.equal((await owner("POST", "personal-wardrobe/toggle", { productId: "wp-shoe" })).status, 404);
@@ -725,8 +755,8 @@ test("mix engine enforces complete slots, compatible styles/colors, and determin
   assert.ok(colorHarmony("#ff0000", "#00ffff").score > .8);
   assert.ok(colorHarmony("#ff0000", "#ff2200").score > .8);
   assert.ok(colorHarmony("#ff0000", "#00ff00").score < .65);
-  assert.equal(mixWardrobe([garment("a", "TOP"), garment("b", "BOTTOM")], opts).outfits.length, 0);
-  assert.equal(mixWardrobe([garment("a", "TOP", ["formal"]), garment("b", "BOTTOM", ["formal"]), garment("s", "FOOTWEAR", ["sporty"])], opts).outfits.length, 0);
+  assert.equal(mixWardrobe([garment("a", "TOP"), garment("b", "BOTTOM")], opts).outfits.length, 1);
+  assert.equal(mixWardrobe([garment("a", "TOP", ["formal"]), garment("b", "BOTTOM", ["formal"]), garment("s", "FOOTWEAR", ["sporty"])], opts).outfits.length, 1);
   const dress = mixWardrobe([garment("d", "DRESS"), garment("s", "FOOTWEAR"), garment("c", "OUTERWEAR"), garment("x", "ACCESSORY")], opts);
   assert.deepEqual(dress.outfits[0].pieces.map(p => p.slot), ["dress", "footwear", "outerwear", "accessory"]);
   const options = [garment("a", "TOP"), garment("b", "BOTTOM"), garment("s", "FOOTWEAR"), garment("a2", "TOP"), garment("b2", "SKIRT"), garment("s2", "FOOTWEAR")];
@@ -737,7 +767,7 @@ test("mix engine enforces complete slots, compatible styles/colors, and determin
   assert.ok(next.outfits.length);
   assert.ok(next.outfits.every(o => !first.outfits.some(previous => previous.id === o.id)));
   const unavailable = options.map(p => ({ ...p, active: p.category !== "FOOTWEAR" }));
-  assert.equal(mixWardrobe(unavailable, opts).outfits.length, 0);
+  assert.ok(mixWardrobe(unavailable, opts).outfits.length > 0);
   assert.equal(mixWardrobe(options.map(p => ({ ...p, isCombo: p.category === "TOP" })), opts).outfits.length, 0);
   const multicolor = [garment("a", "TOP", ["casual"], "#ff0000"), garment("b", "BOTTOM", ["casual"], "#00ff00"), garment("s", "FOOTWEAR")];
   multicolor[1].colors.push({ name: "Cyan", hex: "#00ffff" });
@@ -919,4 +949,40 @@ test("admin dashboard requires ADMIN role and exposes management data without pa
   const customer = await db.user.findUniqueOrThrow({ where: { email: customerEmail } });
   assert.equal((await adminUser("PATCH", "admin/users/" + customer.id, { role: "ADMIN" })).status, 200);
   assert.equal((await db.user.findUniqueOrThrow({ where: { id: customer.id } })).role, "ADMIN");
+});
+
+
+test("minimal outfits resolve without footwear even when shoes exceed budget", async () => {
+  const input = recommendOutfitInputSchema.parse({ request: "Ch? ?o v? qu?n", numberOfOutfits: 1, context: { budget: 1200000 } });
+  const catalog = filterAndRankCandidates([candidate("top-1", "TOP"), candidate("bottom-1", "BOTTOM"), candidate("shoe-1", "FOOTWEAR")], input).candidates;
+  catalog.forEach(p => { p.price = p.category === "shoes" ? 2000000 : 500000; });
+  const result = await recommendOutfits(input, { provider: new MockAIProvider(), findCandidates: async () => ({ candidates: catalog, eligibleCount: 3, scannedCount: 3, limit: 40 }) });
+  assert.equal(result.outfits[0].items.shoes, null);
+  assert.ok(result.outfits[0].items.top && result.outfits[0].items.bottom);
+  const withoutShoes = await recommendOutfits(input, { provider: new MockAIProvider(), findCandidates: async () => ({ candidates: catalog.filter(p => p.category !== "shoes"), eligibleCount: 2, scannedCount: 2, limit: 40 }) });
+  assert.equal(withoutShoes.outfits[0].items.shoes, null);
+});
+
+test("wardrobe supports standalone dresses and skirts but rejects an isolated top", () => {
+  const opts = { seed: "minimal", limit: 3, random: false };
+  const dress = mixWardrobe([garment("dress-only", "DRESS")], opts).outfits[0];
+  assert.equal(dress.pieces.length, 1);
+  assert.ok(Number.isFinite(dress.score));
+  assert.equal(mixWardrobe([garment("top", "TOP"), garment("skirt", "SKIRT")], opts).outfits.length, 1);
+  assert.equal(mixWardrobe([garment("top", "TOP")], opts).outfits.length, 0);
+});
+
+test("studio creates minimal skirt and standalone dress drafts and publishes a dress", async () => {
+  const request = client();
+  const top = (await studioUpload("Minimal top")).data.item;
+  const skirt = (await studioUpload("Minimal skirt", "SKIRT")).data.item;
+  const dress = (await studioUpload("Minimal dress", "DRESS")).data.item;
+  for (const itemIds of [[top.id, skirt.id], [dress.id]]) {
+    const result = await request("POST", "admin/combo-studio/generate", { itemIds, brief: "Ph?i t? m?n hi?n c?", budget: 500000, mode: "manual" }, admin);
+    assert.equal(result.status, 200);
+    const draft = result.data.drafts.find((d: { items: { id: string }[] }) => d.items.length === itemIds.length && d.items.every(i => itemIds.includes(i.id)));
+    assert.ok(draft);
+    if (itemIds.length === 1) assert.equal((await request("POST", "admin/combo-studio/drafts/" + draft.id + "/publish", { stocks: [{ size: "M", stock: 1 }] }, admin)).status, 200);
+  }
+  assert.equal((await request("POST", "admin/combo-studio/generate", { itemIds: [top.id], brief: "Thi?u m?n", budget: 500000, mode: "manual" }, admin)).status, 400);
 });

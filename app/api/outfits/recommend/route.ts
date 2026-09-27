@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { body, endpoint, ApiError } from "../../../../lib/server/http";
 import { recommendOutfitInputSchema } from "../../../../lib/outfit/recommendation-input";
 import { recommendOutfits, RecommendationError } from "../../../../lib/outfit/recommendation-service";
+import { requireAiStylist } from "../../../../lib/server/features";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -18,6 +19,7 @@ function rateLimit(req: NextRequest) {
 }
 
 export const POST = endpoint(async req => {
+  await requireAiStylist();
   rateLimit(req);
   try { return await recommendOutfits(await body(req, recommendOutfitInputSchema)); }
   catch (error) { if (error instanceof RecommendationError) throw new ApiError(error.status, error.code, error.message); throw error; }

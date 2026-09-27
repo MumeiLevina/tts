@@ -14,7 +14,7 @@ export async function recommendOutfit(input: z.infer<typeof stylistInput>) {
   const products = await db.product.findMany({ where: { active: true, price: { lte: budget }, variants: { some: { stock: { gt: 0 }, ...(input.size ? { OR: [{ size: input.size }, { size: "F" }] } : {}) } } }, include: { variants: true }, orderBy: { price: "asc" }, take: 200 });
   const rank = (p: typeof products[number]) => (p.style.includes(occasion) ? 4 : 0) + (p.variants.some(v => text.includes(normalize(v.color))) ? 2 : 0);
   const tops = products.filter(p => p.category === "TOP");
-  const bottoms = products.filter(p => p.category === "BOTTOM");
+  const bottoms = products.filter(p => p.category === "BOTTOM" || p.category === "SKIRT");
   let best: typeof products = [];
   let score = -1;
   for (const top of tops) for (const bottom of bottoms) {
@@ -22,7 +22,11 @@ export async function recommendOutfit(input: z.infer<typeof stylistInput>) {
     const next = rank(top) + rank(bottom);
     if (next > score) { score = next; best = [top, bottom]; }
   }
-  if (!best.length) return { engine: "catalog-rules", message: input.message, rationale: "Chưa có bộ áo và quần/váy đủ tồn kho trong ngân sách này. Bạn có thể tăng ngân sách hoặc đổi size.", outfit: [], alternatives: products.slice(0, 4).map(presentProduct), budget, total: 0, occasion };
+  for (const dress of products.filter(p => p.category === "DRESS")) {
+    const next = rank(dress) * 2;
+    if (next > score) { score = next; best = [dress]; }
+  }
+  if (!best.length) return { engine: "catalog-rules", message: input.message, rationale: "Chưa có áo + quần/chân váy hoặc váy liền còn hàng trong ngân sách này. Bạn có thể tăng ngân sách hoặc đổi size.", outfit: [], alternatives: products.slice(0, 4).map(presentProduct), budget, total: 0, occasion };
   const remaining = budget - best.reduce((sum, p) => sum + p.price, 0);
   const accessory = products.filter(p => p.category === "ACCESSORY" && p.price <= remaining).sort((a, b) => rank(b) - rank(a))[0];
   if (accessory) best.push(accessory);
@@ -42,4 +46,3 @@ export async function recommendSize(input: z.infer<typeof measurementInput>) {
   }));
   return { unit: "cm", matches: matches.map(row => ({ size: row.size, inStock: p.variants.some(v => v.size === row.size && v.stock > 0) })), sizeGuide: p.sizeGuide, note: "Tham khảo theo bảng số đo của sản phẩm, không đảm bảo độ vừa vặn. Số đo gửi lên không được lưu." };
 }
-

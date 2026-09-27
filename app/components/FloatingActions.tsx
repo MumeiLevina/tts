@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { ArrowUp, Sparkles, Phone, MessageCircle, X } from "lucide-react";
 
-export default function FloatingActions() {
+export default function FloatingActions({ aiStylistEnabled = false }: { aiStylistEnabled?: boolean }) {
   const [showBackTop, setShowBackTop] = useState(false);
   const [showSupportModal, setShowSupportModal] = useState(false);
 
@@ -23,7 +23,7 @@ export default function FloatingActions() {
     <>
       <div className="fc-floating-bar" aria-label="Thanh tác vụ nhanh">
         {/* Nút Phòng phối đồ nhanh */}
-        <a
+        {aiStylistEnabled && <a
           href="/fitting-room"
           className="fc-float-btn fc-float-stylist"
           title="Mở phòng phối đồ AI"
@@ -31,7 +31,7 @@ export default function FloatingActions() {
         >
           <Sparkles size={19} className="sparkle-anim" />
           <span className="fc-float-tooltip">Phối đồ AI 3s</span>
-        </a>
+        </a>}
 
         {/* Nút Hỗ trợ / Hotline */}
         <button
@@ -75,7 +75,7 @@ export default function FloatingActions() {
             </div>
 
             <div className="support-modal-body">
-              <div className="support-card-item">
+              {aiStylistEnabled && <div className="support-card-item">
                 <div className="support-channel-info">
                   <strong>Tổng đài tư vấn trực tiếp</strong>
                   <span>Tư vấn chất liệu, bảng size và giải quyết đơn hàng</span>
@@ -83,7 +83,7 @@ export default function FloatingActions() {
                 <a href="tel:19008888" className="btn-support-channel hotline">
                   <Phone size={15} /> 1900 8888
                 </a>
-              </div>
+              </div>}
 
               <div className="support-card-item">
                 <div className="support-channel-info">

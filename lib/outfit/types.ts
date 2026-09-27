@@ -18,7 +18,7 @@ export type ProductStylingMetadata = {
   colors: { name: string; hex: string }[];
   pattern: StylingPattern | null;
   styles: string[];
-  fit: StylingFit | null;
+  fit: string | null;
   material: string;
   season: StylingSeason[];
   occasion: StylingOccasion[];
@@ -85,7 +85,7 @@ export type ResolvedOutfit = {
     dress: ResolvedProduct | null;
     jumpsuit: ResolvedProduct | null;
     outerwear: ResolvedProduct | null;
-    shoes: ResolvedProduct;
+    shoes: ResolvedProduct | null;
     accessories: ResolvedProduct[];
   };
   stylistAdvice: string;

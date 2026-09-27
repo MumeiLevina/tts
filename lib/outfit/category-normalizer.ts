@@ -3,7 +3,7 @@ import type { OutfitSlot } from "./types";
 const aliases: Record<string, OutfitSlot> = {
   TOP: "top", SHIRT: "top", TSHIRT: "top", TEE: "top", BLOUSE: "top", HOODIE: "top", SWEATER: "top",
   BOTTOM: "bottom", PANTS: "bottom", TROUSERS: "bottom", JEANS: "bottom", SHORTS: "bottom", SKIRT: "bottom",
-  DRESS: "dress", JUMPSUIT: "jumpsuit", ROMPER: "jumpsuit",
+  DRESS: "dress", JUMPSUIT: "jumpsuit", ROMPER: "jumpsuit", PLAYSUIT: "jumpsuit",
   OUTERWEAR: "outerwear", JACKET: "outerwear", COAT: "outerwear", CARDIGAN: "outerwear", BLAZER: "outerwear",
   FOOTWEAR: "shoes", SHOES: "shoes", SNEAKERS: "shoes", HEELS: "shoes", BOOTS: "shoes", SANDALS: "shoes",
   ACCESSORY: "accessory", ACCESSORIES: "accessory", BAG: "accessory", JEWELRY: "accessory", HAT: "accessory"

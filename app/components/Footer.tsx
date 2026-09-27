@@ -13,7 +13,7 @@ import {
   ArrowUpRight
 } from "lucide-react";
 
-export default function Footer() {
+export default function Footer({ aiStylistEnabled = false }: { aiStylistEnabled?: boolean }) {
   return (
     <footer className="fc-footer">
       {/* Footer Value Highlights Strip */}
@@ -36,8 +36,8 @@ export default function Footer() {
           <div className="fc-strip-item">
             <div className="fc-strip-icon"><Sparkles size={20} /></div>
             <div>
-              <strong>AI Personal Stylist</strong>
-              <p>Gợi ý phối đồ cá nhân hóa theo phong cách</p>
+              <strong>{aiStylistEnabled ? "AI Personal Stylist" : "Bộ phối theo dịp"}</strong>
+              <p>{aiStylistEnabled ? "Gợi ý phối đồ cá nhân hóa theo phong cách" : "Mua trọn bộ với size và tồn kho rõ ràng"}</p>
             </div>
           </div>
           <div className="fc-strip-item">
@@ -81,7 +81,7 @@ export default function Footer() {
           <div className="fc-footer-col">
             <h4>Trải Nghiệm Mua Sắm</h4>
             <ul className="fc-footer-links">
-              <li><a href="/fitting-room">Phòng phối đồ AI (Fitting Room) <ArrowUpRight size={13} /></a></li>
+              {aiStylistEnabled && <li><a href="/fitting-room">Phòng phối đồ AI (Fitting Room) <ArrowUpRight size={13} /></a></li>}
               <li><a href="/#looks">Bộ sưu tập theo dịp (Lookbook)</a></li>
               <li><a href="/#products">Menu sản phẩm có sẵn</a></li>
               <li><a href="/wardrobe">Tủ đồ cá nhân & phối đồ</a></li>
@@ -115,7 +115,7 @@ export default function Footer() {
       {/* Bottom Copyright Bar */}
       <div className="fc-footer-bottom">
         <div className="fc-footer-container fc-bottom-flex">
-          <p>© {new Date().getFullYear()} FitCraft Studio. All rights reserved. Stylist cá nhân trong tầm tay.</p>
+          <p>© {new Date().getFullYear()} FitCraft Studio. All rights reserved. Phong cách riêng, lựa chọn vừa vặn.</p>
           <p className="fc-made-with">
             Được thiết kế với <Heart size={13} className="heart-icon" /> vì phong cách tự tin của bạn
           </p>

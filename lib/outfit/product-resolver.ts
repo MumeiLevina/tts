@@ -52,7 +52,6 @@ export async function resolveSelectedOutfits(selections: AIOutfitSelection[]): P
   return selections.map(selection => {
     const top = get(selection.items.topId, "top"), bottom = get(selection.items.bottomId, "bottom"), dress = get(selection.items.dressId, "dress"), jumpsuit = get(selection.items.jumpsuitId, "jumpsuit"), outerwear = get(selection.items.outerwearId, "outerwear");
     const shoes = get(selection.items.shoesId, "shoes");
-    if (!shoes) throw new ProductResolutionError("MISSING_PRODUCT", "Outfit thiếu giày.");
     const accessories = selection.items.accessoryIds.map(id => get(id, "accessory")!);
     const items = [top, bottom, dress, jumpsuit, outerwear, shoes, ...accessories].filter((item): item is ResolvedProduct => Boolean(item));
     return { id: selection.outfitId, name: selection.outfitName, layout: selection.layout, items: { top, bottom, dress, jumpsuit, outerwear, shoes, accessories }, stylistAdvice: selection.stylistAdvice, confidence: selection.confidence, totalPrice: items.reduce((sum, item) => sum + item.price, 0) };

@@ -20,7 +20,6 @@ export type CandidateFilterResult = {
 const seasons = new Set<StylingSeason>(["spring", "summer", "autumn", "winter", "all-season"]);
 const occasions = new Set<StylingOccasion>(["cafe", "work", "date", "party", "wedding", "beach", "travel", "casual", "formal"]);
 const patterns = new Set<StylingPattern>(["solid", "striped", "checkered", "floral", "graphic", "textured", "other"]);
-const fits = new Set<StylingFit>(["slim", "regular", "relaxed", "oversized", "tailored"]);
 
 function stringArray<T extends string>(value: unknown, allowed?: Set<T>): T[] {
   if (!Array.isArray(value)) return [];
@@ -36,7 +35,7 @@ function metadata(product: CandidateSourceProduct): ProductStylingMetadata | nul
     id: product.id, name: product.name, category, sourceCategory: product.category,
     subcategory: product.subcategory, colors,
     pattern: product.pattern && patterns.has(product.pattern as StylingPattern) ? product.pattern as StylingPattern : null,
-    styles: productStyles(product.style), fit: product.fit && fits.has(product.fit as StylingFit) ? product.fit as StylingFit : null,
+    styles: productStyles(product.style), fit: product.fit || null,
     material: product.material, season: stringArray(product.season, seasons), occasion: stringArray(product.occasion, occasions),
     formality: product.formality, price: product.price
   };

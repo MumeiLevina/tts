@@ -80,6 +80,8 @@ export default function Home() {
   // Current outfit in the Fitting Room
   const [currentOutfit, setCurrentOutfit] = useState<ProductItem[]>([]);
   const [shopProducts, setShopProducts] = useState<ProductItem[]>([]);
+  const [publishedCombos, setPublishedCombos] = useState<ComboLookData[]>([]);
+  const [aiStylistEnabled, setAiStylistEnabled] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string>("ALL");
   const [catalogLoading, setCatalogLoading] = useState(true);
   const [catalogError, setCatalogError] = useState("");
@@ -131,8 +133,18 @@ export default function Home() {
     } catch (e) { setCatalogError(e instanceof Error ? e.message : "Không tải được sản phẩm."); }
     finally { setCatalogLoading(false); }
   }
+  async function loadPublishedCombos() {
+    try {
+      const data = await api<{ combos: ComboLookData[] }>("combos");
+      setPublishedCombos(data.combos);
+    } catch {
+      // The static editorial looks remain available if the published-combo feed fails.
+    }
+  }
   useEffect(() => {
     void loadCatalog();
+    void loadPublishedCombos();
+    api<{ aiStylist: boolean }>("features").then(data => setAiStylistEnabled(data.aiStylist)).catch(() => setAiStylistEnabled(false));
     api<CartResponse>("cart").then(applyCart).catch(e => setCatalogError(e.message));
   }, []);
   useEffect(() => { setIsSaved(false); setSavedOutfitId(""); }, [currentOutfit]);
@@ -264,6 +276,7 @@ export default function Home() {
   };
 
   // Filtered shop products
+  const displayedLooks = [...publishedCombos, ...curatedLooks.filter(look => !publishedCombos.some(combo => combo.id === look.id))];
   const filteredProducts = shopProducts.filter(item => {
     const query = searchQuery.trim().toLocaleLowerCase("vi");
     return (selectedCategory === "ALL" || item.category === selectedCategory) && (!query || (item.name + " " + item.brand).toLocaleLowerCase("vi").includes(query));
@@ -295,7 +308,7 @@ export default function Home() {
                 <div className="cart-empty-state">
                   <ShoppingBag size={48} strokeWidth={1} style={{ margin: "0 auto 12px", opacity: 0.4 }} />
                   <p>Giỏ hàng chưa có sản phẩm nào.</p>
-                  <p style={{ fontSize: "12px", color: "var(--muted-light)" }}>Hãy chọn sản phẩm từ Menu hoặc phòng thử AI!</p>
+                  <p style={{ fontSize: "12px", color: "var(--muted-light)" }}>Hãy chọn một sản phẩm hoặc bộ phối bạn yêu thích.</p>
                 </div>
               ) : (
                 cart.map((item, idx) => (
@@ -353,10 +366,10 @@ export default function Home() {
               </button>
             </div>
             <nav className="mobile-nav-links">
-              <a href="/fitting-room" onClick={() => setIsMobileMenuOpen(false)} className="mobile-nav-highlight">
+              {aiStylistEnabled && <a href="/fitting-room" onClick={() => setIsMobileMenuOpen(false)} className="mobile-nav-highlight">
                 <Sparkles size={18} />
                 <span>Phòng phối đồ</span>
-              </a>
+              </a>}
               <a href="#looks" onClick={() => setIsMobileMenuOpen(false)}>
                 <span>Bộ sưu tập (Lookbook)</span>
               </a>
@@ -394,9 +407,9 @@ export default function Home() {
         </a>
 
         <nav>
-          <a href="/fitting-room" className="nav-highlight-link">
+          {aiStylistEnabled && <a href="/fitting-room" className="nav-highlight-link">
             <Sparkles size={14} className="nav-sparkle" /> Phòng phối đồ AI
-          </a>
+          </a>}
           <a href="#looks">Bộ sưu tập</a>
           <a href="#products">Sản phẩm shop</a>
           <a href="/orders">Đơn hàng của bạn</a>
@@ -427,8 +440,8 @@ export default function Home() {
                     className="search-tag-item"
                     onMouseDown={() => {
                       setSearchQuery(tag);
-                      handleSendMessage(`Tìm đồ phong cách: ${tag}`);
-                      const el = document.getElementById("stylist");
+                      if (aiStylistEnabled) handleSendMessage(`Tìm đồ phong cách: ${tag}`);
+                      const el = document.getElementById(aiStylistEnabled ? "stylist" : "products");
                       if (el) el.scrollIntoView({ behavior: "smooth" });
                     }}
                   >
@@ -445,7 +458,7 @@ export default function Home() {
           <div className="cart-btn-wrapper">
             <button className="icon-btn" onClick={() => setIsCartOpen(true)} aria-label="Xem giỏ hàng">
               <ShoppingBag size={18} />
-              {cart.length > 0 && <span className="cart-badge">{cart.length}</span>}
+              {cart.length > 0 && <span key={cart.length} className="cart-badge">{cart.length}</span>}
             </button>
           </div>
           <ThemeToggle />
@@ -458,24 +471,24 @@ export default function Home() {
           ======================================================== */}
       <section className="hero" data-reveal>
         <div className="hero-content">
-          <span className="eyebrow-label">Stylist cá nhân của FitCraft</span>
+          <span className="eyebrow-label">{aiStylistEnabled ? "Stylist cá nhân của FitCraft" : "Tuyển chọn bởi FitCraft Studio"}</span>
           <h1>
             Mặc đúng gu.<br/><em>Sống đúng nhịp.</em>
           </h1>
           <p className="hero-description">
-            Chọn dịp mặc và ngân sách. FitCraft ghép những món đang có trong shop thành một tổng thể hợp với bạn.
+            {aiStylistEnabled ? "Chọn dịp mặc và ngân sách. FitCraft ghép những món đang có trong shop thành một tổng thể hợp với bạn." : "Khám phá những bộ phối hoàn chỉnh và các món đồ được chọn để bạn mặc đẹp theo cách riêng."}
           </p>
 
           <div className="hero-cta-group">
-            <a className="cta-primary" href="/fitting-room">
-              Thử stylist ngay <span className="cta-icon"><ArrowRight size={16} /></span>
+            <a className="cta-primary" href={aiStylistEnabled ? "/fitting-room" : "#looks"}>
+              {aiStylistEnabled ? "Thử stylist ngay" : "Khám phá bộ phối"} <span className="cta-icon"><ArrowRight size={16} /></span>
             </a>
-            <a
+            {aiStylistEnabled ? <a
               className="cta-outline"
               href="/fitting-room?upload=1"
             >
               <Camera size={16} strokeWidth={2.2} /> Xem trước với ảnh của tôi
-            </a>
+            </a> : <a className="cta-outline" href="#products"><ShoppingBag size={16} /> Xem sản phẩm mới</a>}
           </div>
         </div>
 
@@ -516,8 +529,8 @@ export default function Home() {
               <Sparkles size={20} />
             </div>
             <div className="fc-prop-text">
-              <strong>Stylist theo dịp và ngân sách</strong>
-              <span>Gợi ý từ những sản phẩm đang còn hàng</span>
+              <strong>{aiStylistEnabled ? "Stylist theo dịp và ngân sách" : "Bộ phối hoàn chỉnh"}</strong>
+              <span>{aiStylistEnabled ? "Gợi ý từ những sản phẩm đang còn hàng" : "Chọn trọn bộ theo phong cách và dịp mặc"}</span>
             </div>
           </div>
           <div className="fc-prop-card">
@@ -543,7 +556,7 @@ export default function Home() {
         </div>
 
         <div className="looks-grid">
-          {curatedLooks.map(look => (
+          {displayedLooks.map(look => (
             <article
               key={look.id}
               className="look-card"
@@ -637,7 +650,7 @@ export default function Home() {
         {catalogError && <p role="alert" className="commerce-error">{catalogError} <button onClick={() => void loadCatalog()}>Thử lại</button></p>}
         {!catalogLoading && !catalogError && !filteredProducts.length && <p>Chưa có sản phẩm phù hợp.</p>}
         {/* Product Grid */}
-        <div className="product-grid">
+        <div className="product-grid" key={selectedCategory + "-" + searchQuery.trim()}>
           {filteredProducts.map(product => (
             <div key={product.id} className="product-card">
               <div className="product-card-img-wrapper">
@@ -656,13 +669,13 @@ export default function Home() {
                 </div>
 
                 <div className="product-card-quick-actions">
-                  <button
+                  {aiStylistEnabled && <button
                     className="btn-card-tryon"
                     onClick={() => handleTryOnProduct(product)}
                     title="Đưa vào bộ phối đồ"
                   >
                     <Sparkles size={13} /> Phối thử
-                  </button>
+                  </button>}
                   <button
                     className="btn-card-cart"
                     onClick={() => setViewingProductId(product.id)}
@@ -698,18 +711,18 @@ export default function Home() {
       <PersonalWardrobe />
 
       {/* Footer */}
-      <Footer />
+      <Footer aiStylistEnabled={aiStylistEnabled} />
 
       {/* Floating Action Buttons */}
-      <FloatingActions />
+      <FloatingActions aiStylistEnabled={aiStylistEnabled} />
 
       {/* Combo Detail Modal */}
       {viewingProductId && <ProductDetailModal
         productId={viewingProductId}
-        combo={curatedLooks.find(look => look.id === viewingProductId)}
+        combo={displayedLooks.find(look => look.id === viewingProductId)}
         onClose={() => setViewingProductId(null)}
         onAdded={(data, checkout) => { applyCart(data); setViewingProductId(null); setIsCheckout(checkout); setIsCartOpen(true); }}
-        onTryOn={title => { window.location.href = `/fitting-room?style=${encodeURIComponent(title)}`; }}
+        onTryOn={aiStylistEnabled ? title => { window.location.href = `/fitting-room?style=${encodeURIComponent(title)}`; } : undefined}
       />}
       <ComboDetailModal
         combo={viewingCombo}
@@ -721,9 +734,9 @@ export default function Home() {
           setIsCheckout(checkout);
           setIsCartOpen(true);
         }}
-        onTryOn={(title) => {
+        onTryOn={aiStylistEnabled ? (title) => {
           window.location.href = `/fitting-room?style=${encodeURIComponent(title)}`;
-        }}
+        } : undefined}
       />
     </main>
   );

@@ -1,4 +1,5 @@
 import { PrismaClient } from "@prisma/client";
+import { seedDefaultTaxonomy } from "../lib/server/product-taxonomy";
 const db = new PrismaClient();
 const rows = [
   ["top-1", "Áo sơ mi lụa Sage", "TOP", 690000, "1596755389378-c31d21fd1273", "office party", "Sage", "#9BAE9A", "Lụa pha", "S,M,L,XL"],
@@ -15,6 +16,7 @@ const rows = [
 ] as const;
 
 async function main() {
+  await seedDefaultTaxonomy(db);
   for (const [id, name, category, price, photo, style, color, colorHex, material, sizes] of rows) {
     await db.product.upsert({ where: { id }, update: {}, create: {
       id, slug: id, name, category, price, style, brand: "FitCraft Studio", material,

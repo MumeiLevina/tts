@@ -1,16 +1,18 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
-import { BarChart3, Boxes, ClipboardList, LogOut, Menu, PackagePlus, RefreshCw, RotateCcw, ShieldCheck, ShoppingBag, Users, X, Sparkles } from "lucide-react";
+import { BarChart3, Boxes, ClipboardList, LogOut, Menu, PackagePlus, RefreshCw, RotateCcw, ShieldCheck, ShoppingBag, Users, X, Sparkles, SlidersHorizontal } from "lucide-react";
 import ComboStudio from "./ComboStudio";
 import { api, money, orderStatuses, OrderView } from "../../../lib/client/api";
+import ProductTaxonomyFields from "./ProductTaxonomyFields";
+import { productGroupLabels } from "../../../lib/product-taxonomy";
 
-type Tab = "overview" | "products" | "orders" | "returns" | "users" | "studio";
+type Tab = "overview" | "products" | "orders" | "returns" | "users" | "studio" | "settings";
 type Variant = { id: string; sku: string; size: string; color: string; colorHex: string; stock: number };
-type Product = { id: string; name: string; brand: string; category: string; price: number; image: string; active: boolean; variants: Variant[] };
+type Product = { id: string; name: string; brand: string; category: string; subcategory: string | null; fit: string | null; price: number; image: string; active: boolean; variants: Variant[] };
 type UserRow = { id: string; name: string; email: string; role: string; createdAt: string; _count?: { authSessions: number } };
 type ReturnRow = { id: string; status: string; quantity: number; reason: string; createdAt: string; orderItem: { name: string; size: string; color: string }; order: { number: string; customerName: string; phone: string } };
 type Dashboard = { stats: { products: number; activeProducts: number; lowStock: number; users: number; orders: number; pendingOrders: number; pendingReturns: number; deliveredRevenue: number; todayOrders: number }; recentOrders: OrderView[] };
-const labels: Record<Tab, string> = { overview: "Tổng quan", products: "Sản phẩm", orders: "Đơn hàng", returns: "Đổi trả", users: "Người dùng", studio: "Trợ lý phối combo" };
+const labels: Record<Tab, string> = { overview: "Tổng quan", products: "Sản phẩm", orders: "Đơn hàng", returns: "Đổi trả", users: "Người dùng", studio: "Trợ lý phối combo", settings: "Tính năng website" };
 
 export default function AdminDashboard({ user }: { user: { id: string; name: string; email: string } }) {
   const [tab, setTab] = useState<Tab>("overview");
@@ -25,6 +27,7 @@ export default function AdminDashboard({ user }: { user: { id: string; name: str
   const [menuOpen, setMenuOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [studioVersion, setStudioVersion] = useState(0);
+  const [features, setFeatures] = useState<{ aiStylist: boolean } | null>(null);
   useEffect(() => { if (new URLSearchParams(window.location.search).get("tab") === "studio") setTab("studio"); }, []);
 
   const load = useCallback(async (target: Tab = tab) => {
@@ -35,6 +38,7 @@ export default function AdminDashboard({ user }: { user: { id: string; name: str
       if (target === "orders") setOrders((await api<{ orders: OrderView[] }>("admin/orders")).orders);
       if (target === "returns") setReturns((await api<{ requests: ReturnRow[] }>("admin/returns")).requests);
       if (target === "users") setUsers((await api<{ users: UserRow[] }>("admin/users")).users);
+      if (target === "settings") setFeatures(await api<{ aiStylist: boolean }>("admin/features"));
     } catch (e) {
       const message = e instanceof Error ? e.message : "Không thể tải dữ liệu quản trị.";
       setError(message);
@@ -54,7 +58,8 @@ export default function AdminDashboard({ user }: { user: { id: string; name: str
 
   const nav = [
     { id: "overview" as Tab, icon: BarChart3 }, { id: "studio" as Tab, icon: Sparkles }, { id: "products" as Tab, icon: Boxes },
-    { id: "orders" as Tab, icon: ShoppingBag }, { id: "returns" as Tab, icon: RotateCcw }, { id: "users" as Tab, icon: Users }
+    { id: "orders" as Tab, icon: ShoppingBag }, { id: "returns" as Tab, icon: RotateCcw }, { id: "users" as Tab, icon: Users },
+    { id: "settings" as Tab, icon: SlidersHorizontal }
   ];
   return <main className="admin-shell">
     <aside className={"admin-sidebar " + (menuOpen ? "open" : "")}>
@@ -82,9 +87,41 @@ export default function AdminDashboard({ user }: { user: { id: string; name: str
         {tab === "orders" && <Orders orders={orders} busy={busy} perform={perform} />}
         {tab === "returns" && <Returns rows={returns} busy={busy} perform={perform} />}
         {tab === "users" && <UsersTable rows={users} currentUserId={user.id} busy={busy} perform={perform} />}
+        {tab === "settings" && <FeatureSettings features={features} busy={busy} perform={perform} />}
       </div>
     </section>
   </main>;
+}
+
+function FeatureSettings({ features, busy, perform }: { features: { aiStylist: boolean } | null; busy: string; perform: Perform }) {
+  if (!features) return <Loading />;
+  const enabled = features.aiStylist;
+  return <section className="admin-feature-panel" aria-labelledby="feature-title">
+    <div className="admin-feature-copy">
+      <span className="admin-feature-kicker">Hiển thị trên gian hàng</span>
+      <h2 id="feature-title">AI Stylist</h2>
+      <p>Khi tắt, FitCraft ẩn banner, đường dẫn, nút nổi và phòng phối đồ AI khỏi phía khách. Trợ lý phối combo trong quản trị vẫn hoạt động độc lập.</p>
+      <div className={"admin-feature-state " + (enabled ? "is-on" : "is-off")}>
+        <i aria-hidden="true" />
+        <span>{enabled ? "Đang hiển thị với khách" : "Đang tạm ẩn để cải thiện"}</span>
+      </div>
+    </div>
+    <button
+      type="button"
+      role="switch"
+      aria-checked={enabled}
+      aria-label="Bật hoặc tắt AI Stylist trên website"
+      className="admin-feature-switch"
+      disabled={busy === "ai-stylist-toggle"}
+      onClick={() => perform("ai-stylist-toggle", async () => {
+        const next = await api<{ aiStylist: boolean }>("admin/features/ai-stylist", { method: "PATCH", body: JSON.stringify({ enabled: !enabled }) });
+        features.aiStylist = next.aiStylist;
+      }, enabled ? "Đã tạm ẩn AI Stylist." : "Đã bật AI Stylist trên website.", "settings")}
+    >
+      <span className="admin-switch-track"><span className="admin-switch-thumb"><Sparkles size={14} /></span></span>
+      <span className="admin-switch-label">{busy === "ai-stylist-toggle" ? "Đang cập nhật…" : enabled ? "Đang bật" : "Đang tắt"}</span>
+    </button>
+  </section>;
 }
 
 function Overview({ data, onNavigate }: { data: Dashboard | null; onNavigate: (tab: Tab) => void }) {
@@ -109,14 +146,14 @@ function Products({ products, busy, open, setOpen, perform }: { products: Produc
   async function create(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault(); const form = new FormData(event.currentTarget);
     const sizes = String(form.get("sizes")).split(",").map(v => v.trim().toUpperCase()).filter(Boolean);
-    const payload = { name: form.get("name"), brand: form.get("brand"), category: form.get("category"), price: Number(form.get("price")), image: form.get("image"), description: form.get("description"), material: form.get("material"), care: form.get("care"), style: form.get("style"), tags: Array.from(new Set(String(form.get("tags") || "").split(",").map(t => t.trim()).filter(Boolean))), tagBadge: form.get("tagBadge") || undefined, variants: sizes.map(size => ({ size, color: form.get("color"), colorHex: form.get("colorHex"), stock: Number(form.get("stock")) })) };
+    const payload = { name: form.get("name"), brand: form.get("brand"), category: form.get("category"), subcategory: form.get("subcategory") || undefined, fit: form.get("fit") || undefined, price: Number(form.get("price")), image: form.get("image"), description: form.get("description"), material: form.get("material"), care: form.get("care"), style: form.get("style"), tags: Array.from(new Set(String(form.get("tags") || "").split(",").map(t => t.trim()).filter(Boolean))), tagBadge: form.get("tagBadge") || undefined, variants: sizes.map(size => ({ size, color: form.get("color"), colorHex: form.get("colorHex"), stock: Number(form.get("stock")) })) };
     await perform("create-product", async () => { await api("admin/products", { method: "POST", body: JSON.stringify(payload) }); setOpen(false); (event.target as HTMLFormElement).reset(); }, "Đã tạo sản phẩm.", "products");
   }
   return <><div className="admin-section-actions"><p>{products.length} sản phẩm trong trang hiện tại</p><button className="admin-primary" onClick={() => setOpen(!open)}><PackagePlus size={17} /> Thêm sản phẩm</button></div>
     {open && <form className="admin-create-form admin-panel" onSubmit={create}>
       <h2>Sản phẩm mới</h2><div className="admin-form-grid">
         <label>Tên sản phẩm<input name="name" required minLength={2} /></label><label>Thương hiệu<input name="brand" defaultValue="FitCraft Studio" required /></label>
-        <label>Danh mục<select name="category"><option>TOP</option><option>BOTTOM</option><option>SKIRT</option><option>DRESS</option><option>OUTERWEAR</option><option>FOOTWEAR</option><option>ACCESSORY</option></select></label>
+        <ProductTaxonomyFields />
         <label>Giá bán<input name="price" type="number" min={1000} max={100000000} required /></label>
         <label className="wide">URL ảnh HTTPS<input name="image" type="url" required /></label>
         <label>Chất liệu<input name="material" /></label><label>Phong cách<input name="style" defaultValue="casual" /></label>
@@ -132,10 +169,15 @@ function Products({ products, busy, open, setOpen, perform }: { products: Produc
 
 function ProductEditor({ product, busy, perform }: { product: Product; busy: string; perform: Perform }) {
   const [price, setPrice] = useState(product.price);
+  async function saveTaxonomy(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault(); const form = new FormData(event.currentTarget);
+    await perform(product.id, () => api("admin/products/" + product.id, { method: "PATCH", body: JSON.stringify({ category: form.get("category"), subcategory: form.get("subcategory") || null, fit: form.get("fit") || null }) }).then(() => undefined), "Đã cập nhật phân loại sản phẩm.", "products");
+  }
   return <article className="admin-product-card">
-    <img src={product.image} alt="" /><div className="admin-product-main"><div><small>{product.brand} · {product.category}</small><h3>{product.name}</h3><span className={product.active ? "admin-live" : "admin-hidden"}>{product.active ? "Đang bán" : "Đã ẩn"}</span></div>
+    <img src={product.image} alt="" /><div className="admin-product-main"><div><small>{product.brand} · {productGroupLabels[product.category as keyof typeof productGroupLabels] || product.category}{product.subcategory ? ` · ${product.subcategory}` : ""}{product.fit ? ` · ${product.fit}` : ""}</small><h3>{product.name}</h3><span className={product.active ? "admin-live" : "admin-hidden"}>{product.active ? "Đang bán" : "Đã ẩn"}</span></div>
       <div className="admin-price-edit"><input aria-label={"Giá " + product.name} type="number" min={1000} value={price} onChange={e => setPrice(Number(e.target.value))} /><button disabled={busy === product.id || price === product.price} onClick={() => perform(product.id, () => api("admin/products/" + product.id, { method: "PATCH", body: JSON.stringify({ price }) }).then(() => undefined), "Đã cập nhật giá.", "products")}>Lưu giá</button>
       <button onClick={() => perform(product.id, () => api("admin/products/" + product.id, { method: "PATCH", body: JSON.stringify({ active: !product.active }) }).then(() => undefined), product.active ? "Đã ẩn sản phẩm." : "Đã mở bán sản phẩm.", "products")}>{product.active ? "Ẩn" : "Mở bán"}</button></div>
+      <details className="admin-taxonomy-edit"><summary>Sửa phân loại</summary><form className="admin-form-grid" onSubmit={saveTaxonomy}><ProductTaxonomyFields initialGroup={product.category} initialSubcategory={product.subcategory} initialFit={product.fit} /><button className="admin-primary" disabled={busy === product.id}>Lưu phân loại</button></form></details>
     </div>
     <div className="admin-variant-grid">{product.variants.map(variant => <VariantStock key={variant.id} variant={variant} busy={busy} perform={perform} />)}</div>
   </article>;

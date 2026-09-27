@@ -9,6 +9,7 @@
     "typecheck": "tsc --noEmit",
     "db:setup": "node scripts/setup.mjs",
     "db:seed": "tsx prisma/seed.ts",
+    "db:seed:canvas": "tsx scripts/seed-canvas-samples.ts",
     "test": "node scripts/test.mjs",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",

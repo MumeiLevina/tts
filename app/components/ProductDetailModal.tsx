@@ -11,7 +11,7 @@ type SizeRow = { size: string; chestMin: number | null; chestMax: number | null;
 type Product = { id: string; name: string; brand: string; price: number; image: string; category: string; style: string; tags?: string[]; description: string; material: string; care: string; variants: Variant[]; sizeGuide: SizeRow[]; combo?: ComboLookData };
 type Policy = { shippingFee: number; freeShippingThreshold: number; returnWindowDays: number };
 export type DetailCart = { items: { id: string; variantId: string; quantity: number; size: string; color: string; product: Product & { category: "TOP" | "BOTTOM" | "OUTERWEAR" | "ACCESSORY" | "FOOTWEAR"; priceFormatted: string; selectedSize: string; availableSizes: string[] } }[]; subtotal: number; shippingFee: number; total: number };
-type Props = { productId: string; combo?: ComboLookData; onClose: () => void; onAdded: (cart: DetailCart, checkout: boolean) => void; onTryOn: (title: string) => void };
+type Props = { productId: string; combo?: ComboLookData; onClose: () => void; onAdded: (cart: DetailCart, checkout: boolean) => void; onTryOn?: (title: string) => void };
 
 export default function ProductDetailModal(props: Props) {
   return <ProductDetail key={props.productId} {...props} />;
@@ -176,7 +176,7 @@ function ProductDetail({ productId, combo: initialCombo, onClose, onAdded, onTry
                 {combo && <span className="pdp-image-badge">THE COMPLETE LOOK · {combo.items.length} MÓN</span>}
               </div>
               <p className="pdp-caption">{combo ? "Một bộ phối. Phong cách của riêng bạn." : "Khám phá từng chi tiết, chọn đúng phong cách."}</p>
-              <button className="pdp-stylist" disabled={busy} onClick={() => onTryOn(title)}><Sparkles size={19} /><span><strong>Chưa biết phối thế nào?</strong><small>Khám phá cùng stylist FitCraft</small></span><ChevronRight size={18} /></button>
+              {onTryOn && <button className="pdp-stylist" disabled={busy} onClick={() => onTryOn(title)}><Sparkles size={19} /><span><strong>Chưa biết phối thế nào?</strong><small>Khám phá cùng stylist FitCraft</small></span><ChevronRight size={18} /></button>}
             </section>
             <section className="pdp-info">
               <p className="pdp-eyebrow">{product.brand || "FITCRAFT STUDIO"}{combo ? " / " + combo.styleName : ""}</p>

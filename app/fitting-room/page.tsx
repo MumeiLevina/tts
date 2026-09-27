@@ -79,6 +79,7 @@ function canvasProduct(product: ProductItem): ResolvedProduct {
 }
 
 export default function FittingRoomPage() {
+  const [aiStylistEnabled, setAiStylistEnabled] = useState<boolean | null>(null);
   const [currentOutfit, setCurrentOutfit] = useState<ProductItem[]>([]);
   const [shopProducts, setShopProducts] = useState<ProductItem[]>([]);
   const [cart, setCart] = useState<ProductItem[]>([]);
@@ -113,6 +114,12 @@ export default function FittingRoomPage() {
   const cartLock = useRef(false);
   const pinnedProductId = useRef("");
   const hasUserMessage = chatMessages.some(message => message.sender === "user");
+
+  useEffect(() => {
+    api<{ aiStylist: boolean }>("features")
+      .then(data => setAiStylistEnabled(data.aiStylist))
+      .catch(() => setAiStylistEnabled(false));
+  }, []);
 
   const canvasOutfit = useMemo<CanvasOutfit | null>(() => {
     if (!currentOutfit.length) return null;
@@ -406,6 +413,9 @@ export default function FittingRoomPage() {
 
   const totalPrice = currentOutfit.reduce((sum, item) => sum + item.price, 0);
   const formattedTotalPrice = money(totalPrice);
+
+  if (aiStylistEnabled === null) return <main className="feature-gate"><div className="feature-gate-card" role="status"><span>FITCRAFT STUDIO</span><h1>Đang chuẩn bị không gian phối đồ</h1></div></main>;
+  if (!aiStylistEnabled) return <main className="feature-gate"><div className="feature-gate-card"><span>ĐANG HOÀN THIỆN</span><h1>Phòng phối đồ đang tạm nghỉ.</h1><p>FitCraft đang tinh chỉnh trải nghiệm để các gợi ý rõ ràng và hữu ích hơn. Trong lúc chờ, bạn có thể khám phá những bộ phối đã được studio chọn sẵn.</p><div><a className="cta-primary" href="/#looks">Xem các bộ phối <ArrowRight size={16} /></a><a className="feature-gate-link" href="/#products">Xem sản phẩm</a></div></div></main>;
 
   return (
     <div className="fitting-page-wrapper">

@@ -53,6 +53,7 @@ function evaluate(pieces: OutfitPiece[]): Scored | null {
     colorSum += color.score; styleSum += style; pairs++;
     if (color.score >= .8) reasons.add(color.reason);
   }
+  if (!pairs) return { score: 95, reasons: ["Váy liền có thể mặc độc lập"] };
   const colorScore = colorSum / pairs, styleScore = styleSum / pairs;
   if (colorScore < .65) return null;
   reasons.add(pieces.some(p => !p.product.styles.length) ? "Một số món chưa có phong cách; cần kiểm tra thêm" : styleScore >= .95 ? "Phong cách đồng nhất" : "Các phong cách có thể kết hợp");
@@ -63,7 +64,7 @@ function piece(product: WardrobeProduct, slot: OutfitPiece["slot"], color: Wardr
 }
 
 /** Mix & match is bounded and uses ONLY its input wardrobe:
- * 1. Require TOP + BOTTOM/SKIRT + FOOTWEAR, or DRESS + FOOTWEAR.
+ * 1. Require TOP + BOTTOM/SKIRT, or DRESS; footwear is optional.
  * 2. Evaluate all color assignments, capped at 3 real shop colors per product.
  * 3. Reject style conflicts; rank the best compatible color assignment.
  * 4. Optionally attach a compatible coat/accessory, never a second core slot.
@@ -80,7 +81,6 @@ export function mixWardrobe(products: WardrobeProduct[], options: { seed: string
   const tops = group("TOP"), bottoms = group("BOTTOM", "SKIRT"), dresses = group("DRESS"), shoes = group("FOOTWEAR");
   const coats = group("OUTERWEAR"), accessories = group("ACCESSORY");
   const missing: string[] = [];
-  if (!shoes.length) missing.push("Giày");
   if (!dresses.length) { if (!tops.length) missing.push("Áo hoặc váy liền"); if (!bottoms.length) missing.push("Quần/chân váy hoặc váy liền"); }
   if (missing.length) return { outfits: [] as RecommendedOutfit[], missing, eligibleCount: eligible.length, candidateCount: 0, message: "Chưa đủ nhóm đồ. Hãy lưu thêm: " + missing.join(", ") + "." };
 
@@ -102,7 +102,7 @@ export function mixWardrobe(products: WardrobeProduct[], options: { seed: string
     const found = best as { pieces: OutfitPiece[]; quality: Scored };
     let selected = found.pieces;
     // Add at most one layer and one accessory only when the full set stays coherent.
-    for (const [extras, slot] of [[coats, "outerwear"], [accessories, "accessory"]] as const) {
+    for (const [extras, slot] of [[selected.some(p => p.slot === "footwear") ? [] : shoes, "footwear"], [coats, "outerwear"], [accessories, "accessory"]] as const) {
       let extension: { pieces: OutfitPiece[]; quality: Scored } | null = null;
       for (const product of extras) for (const color of colors(product)) {
         const next = [...selected, piece(product, slot, color)], quality = evaluate(next);
@@ -114,8 +114,8 @@ export function mixWardrobe(products: WardrobeProduct[], options: { seed: string
     const id = selected.map(p => p.product.id).sort().join("|");
     candidates.set(id, { id, pieces: selected, ...quality, totalPrice: selected.reduce((sum, p) => sum + p.product.price, 0) });
   }
-  for (const top of tops) for (const bottom of bottoms) for (const shoe of shoes) addCore([{ product: top, slot: "top" }, { product: bottom, slot: "bottom" }, { product: shoe, slot: "footwear" }]);
-  for (const dress of dresses) for (const shoe of shoes) addCore([{ product: dress, slot: "dress" }, { product: shoe, slot: "footwear" }]);
+  for (const top of tops) for (const bottom of bottoms) for (const shoe of [...shoes, undefined]) addCore([{ product: top, slot: "top" }, { product: bottom, slot: "bottom" }, ...(shoe ? [{ product: shoe, slot: "footwear" as const }] : [])]);
+  for (const dress of dresses) for (const shoe of [...shoes, undefined]) addCore([{ product: dress, slot: "dress" }, ...(shoe ? [{ product: shoe, slot: "footwear" as const }] : [])]);
 
   const all = Array.from(candidates.values());
   const excluded = new Set(options.exclude || []);

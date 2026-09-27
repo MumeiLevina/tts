@@ -1,0 +1,190 @@
+{
+  "purpose": "Development canvas fixtures. Replace images before production. Prices, sizes and stock are mock data, not retailer offers.",
+  "downloadedAt": "2026-09-26T12:23:50.794Z",
+  "products": [
+    {
+      "id": "canvas-sample-shirt",
+      "name": "S? mi Oxford tr?ng",
+      "category": "TOP",
+      "color": "Tr?ng",
+      "colorHex": "#FFFFFF",
+      "price": 690000,
+      "style": "office casual",
+      "brand": "UNIQLO",
+      "sourcePage": "https://www.uniqlo.com/us/en/products/E462188-000/00",
+      "sourceImage": "https://image.uniqlo.com/UQ/ST3/WesternCommon/imagesgoods/462188/item/goods_00_462188_3x4.jpg?width=750",
+      "image": "/sample-products/shirt.jpg",
+      "sizes": [
+        "S",
+        "M",
+        "L",
+        "XL"
+      ]
+    },
+    {
+      "id": "canvas-sample-shirt-blue",
+      "name": "S? mi Oxford xanh nh?t",
+      "category": "TOP",
+      "color": "Xanh nh?t",
+      "colorHex": "#AEC9DE",
+      "price": 690000,
+      "style": "office casual",
+      "brand": "UNIQLO",
+      "sourcePage": "https://www.uniqlo.com/us/en/products/E462188-000/00",
+      "sourceImage": "https://image.uniqlo.com/UQ/ST3/WesternCommon/imagesgoods/462188/item/goods_60_462188_3x4.jpg?width=750",
+      "image": "/sample-products/shirt-blue.jpg",
+      "sizes": [
+        "S",
+        "M",
+        "L",
+        "XL"
+      ]
+    },
+    {
+      "id": "canvas-sample-tee",
+      "name": "?o thun Slim Air ?en",
+      "category": "TOP",
+      "color": "?en",
+      "colorHex": "#222222",
+      "price": 350000,
+      "style": "casual minimal",
+      "brand": "Everlane",
+      "sourcePage": "https://www.everlane.com/products/womens-slim-air-tee-black",
+      "sourceImage": "https://cdn.shopify.com/s/files/1/0623/7916/3734/files/60299e93_3159.jpg?v=1753411836",
+      "image": "/sample-products/tee.jpg",
+      "sizes": [
+        "S",
+        "M",
+        "L",
+        "XL"
+      ]
+    },
+    {
+      "id": "canvas-sample-pants-beige",
+      "name": "Qu?n x?p ly ?ng r?ng beige",
+      "category": "BOTTOM",
+      "color": "Beige",
+      "colorHex": "#B8A58A",
+      "price": 790000,
+      "style": "office casual",
+      "brand": "UNIQLO",
+      "sourcePage": "https://www.uniqlo.com/us/en/products/E463706-000/00",
+      "sourceImage": "https://image.uniqlo.com/UQ/ST3/WesternCommon/imagesgoods/463706/item/goods_32_463706_3x4.jpg?width=750",
+      "image": "/sample-products/pants-beige.jpg",
+      "sizes": [
+        "S",
+        "M",
+        "L",
+        "XL"
+      ]
+    },
+    {
+      "id": "canvas-sample-pants-navy",
+      "name": "Qu?n x?p ly ?ng r?ng navy",
+      "category": "BOTTOM",
+      "color": "Navy",
+      "colorHex": "#252C3E",
+      "price": 790000,
+      "style": "office casual",
+      "brand": "UNIQLO",
+      "sourcePage": "https://www.uniqlo.com/us/en/products/E463706-000/00",
+      "sourceImage": "https://image.uniqlo.com/UQ/ST3/WesternCommon/imagesgoods/463706/item/goods_69_463706_3x4.jpg?width=750",
+      "image": "/sample-products/pants-navy.jpg",
+      "sizes": [
+        "S",
+        "M",
+        "L",
+        "XL"
+      ]
+    },
+    {
+      "id": "canvas-sample-blazer",
+      "name": "Blazer d?ng r?ng x?m",
+      "category": "OUTERWEAR",
+      "color": "X?m",
+      "colorHex": "#6B6560",
+      "price": 1250000,
+      "style": "office minimal",
+      "brand": "Everlane",
+      "sourcePage": "https://www.everlane.com/products/womens-oversized-blazer-greyherringbone",
+      "sourceImage": "https://cdn.shopify.com/s/files/1/0623/7916/3734/files/5552a505_15db.jpg?v=1753411411",
+      "image": "/sample-products/blazer.jpg",
+      "sizes": [
+        "S",
+        "M",
+        "L",
+        "XL"
+      ]
+    },
+    {
+      "id": "canvas-sample-dress",
+      "name": "V?y li?n Weekend Tank ?en",
+      "category": "DRESS",
+      "color": "?en",
+      "colorHex": "#222222",
+      "price": 850000,
+      "style": "casual minimal",
+      "brand": "Everlane",
+      "sourcePage": "https://www.everlane.com/products/womens-organic-cotton-weekend-tank-dress-black",
+      "sourceImage": "https://cdn.shopify.com/s/files/1/0623/7916/3734/files/4f2aad6c_e80e.jpg?v=1753411526",
+      "image": "/sample-products/dress.jpg",
+      "sizes": [
+        "S",
+        "M",
+        "L",
+        "XL"
+      ]
+    },
+    {
+      "id": "canvas-sample-bag-black",
+      "name": "T?i Round Mini ?en",
+      "category": "ACCESSORY",
+      "color": "?en",
+      "colorHex": "#222222",
+      "price": 390000,
+      "style": "casual minimal",
+      "brand": "UNIQLO",
+      "sourcePage": "https://www.uniqlo.com/us/en/products/E481610-000/00",
+      "sourceImage": "https://image.uniqlo.com/UQ/ST3/WesternCommon/imagesgoods/481610/item/goods_09_481610_3x4.jpg?width=750",
+      "image": "/sample-products/bag-black.jpg",
+      "sizes": [
+        "F"
+      ]
+    },
+    {
+      "id": "canvas-sample-bag-green",
+      "name": "T?i Round Mini xanh",
+      "category": "ACCESSORY",
+      "color": "Xanh",
+      "colorHex": "#A0AE89",
+      "price": 390000,
+      "style": "casual minimal",
+      "brand": "UNIQLO",
+      "sourcePage": "https://www.uniqlo.com/us/en/products/E481610-000/00",
+      "sourceImage": "https://image.uniqlo.com/UQ/ST3/WesternCommon/imagesgoods/481610/item/goods_52_481610_3x4.jpg?width=750",
+      "image": "/sample-products/bag-green.jpg",
+      "sizes": [
+        "F"
+      ]
+    },
+    {
+      "id": "canvas-sample-loafer",
+      "name": "Gi?y Modern Loafer ?en",
+      "category": "FOOTWEAR",
+      "color": "?en",
+      "colorHex": "#222222",
+      "price": 890000,
+      "style": "office casual minimal",
+      "brand": "Everlane",
+      "sourcePage": "https://www.everlane.com/products/womens-leather-modern-loafer-black",
+      "sourceImage": "https://cdn.shopify.com/s/files/1/0623/7916/3734/files/e1c2d6c9_3a55.jpg?v=1753411641",
+      "image": "/sample-products/loafer.jpg",
+      "sizes": [
+        "36",
+        "37",
+        "38",
+        "39"
+      ]
+    }
+  ]
+}

@@ -2,24 +2,41 @@ import { NextRequest } from "next/server";
 import { z } from "zod";
 import { db } from "../../../../lib/server/db";
 import { ApiError, body, endpoint, RequestUser } from "../../../../lib/server/http";
-import { createProduct, getProduct, listProducts, presentProduct } from "../../../../lib/server/catalog";
+import { createProduct, getProduct, listProducts, listPublishedCombos, presentProduct } from "../../../../lib/server/catalog";
 import { addCart, cartInput, changeOrder, checkout, getCart, orderInclude, policy, publicOrder, requestReturn, returnInput, reviewReturn, setCartQuantity } from "../../../../lib/server/commerce";
 import { measurementInput, recommendSize } from "../../../../lib/server/fashion";
 import { checkoutInput, productInput } from "../../../../lib/server/validation";
 import { studioState, uploadStudioItem, generateCombos, generateInput, editDraft, draftEditInput, publishDraft, publishInput } from "../../../../lib/server/combo-studio";
 import { createWardrobe, deleteWardrobe, listWardrobe, wardrobeInput } from "../../../../lib/server/wardrobe";
+import { createTaxonomyOption, listTaxonomy, scopeForAdmin, taxonomyCreateInput, taxonomyQuery, assertTaxonomySelection } from "../../../../lib/server/product-taxonomy";
+import { category } from "../../../../lib/server/validation";
+import type { ProductGroup } from "../../../../lib/product-taxonomy";
+import { studioItemTag } from "../../../../lib/studio";
+import { featureFlags, setAiStylistFeature } from "../../../../lib/server/features";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 type Route = { method: string; pattern: RegExp; session?: boolean; admin?: boolean; successStatus?: number; run: (req: NextRequest, sessionId: string, match: RegExpMatchArray, user: RequestUser | null) => Promise<unknown> };
 const routes: Route[] = [
+  { method: "GET", pattern: /^features$/, run: () => featureFlags() },
+  { method: "GET", pattern: /^admin\/features$/, admin: true, run: () => featureFlags() },
+  { method: "PATCH", pattern: /^admin\/features\/ai-stylist$/, admin: true, run: async req => {
+    const { enabled } = await body(req, z.object({ enabled: z.boolean() }).strict());
+    return setAiStylistFeature(enabled);
+  } },
+  { method: "GET", pattern: /^admin\/taxonomy$/, admin: true, run: async (req, _s, _m, user) => {
+    const query = taxonomyQuery.parse(Object.fromEntries(req.nextUrl.searchParams));
+    return { options: await listTaxonomy(scopeForAdmin(user?.id || null), query.group, query.kind) };
+  } },
+  { method: "POST", pattern: /^admin\/taxonomy$/, admin: true, run: async (req, _s, _m, user) => createTaxonomyOption(scopeForAdmin(user?.id || null), await body(req, taxonomyCreateInput)) },
   { method: "GET", pattern: /^admin\/combo-studio$/, admin: true, run: () => studioState() },
   { method: "POST", pattern: /^admin\/combo-studio\/items$/, admin: true, run: req => uploadStudioItem(req) },
   { method: "POST", pattern: /^admin\/combo-studio\/generate$/, admin: true, run: async (req, _s, _m, user) => generateCombos(await body(req, generateInput), user?.id || "admin-api") },
   { method: "PATCH", pattern: /^admin\/combo-studio\/drafts\/([^/]+)$/, admin: true, run: async (req, _s, m) => editDraft(m[1], await body(req, draftEditInput)) },
   { method: "POST", pattern: /^admin\/combo-studio\/drafts\/([^/]+)\/publish$/, admin: true, run: async (req, _s, m) => publishDraft(m[1], await body(req, publishInput)) },
   { method: "GET", pattern: /^products$/, run: req => listProducts(req.nextUrl.searchParams) },
+  { method: "GET", pattern: /^combos$/, run: () => listPublishedCombos() },
   { method: "GET", pattern: /^products\/([^/]+)$/, run: async (_r, _s, m) => ({ product: await getProduct(m[1]) }) },
   { method: "GET", pattern: /^policies$/, run: async () => policy },
   { method: "POST", pattern: /^size-advice$/, run: async req => recommendSize(await body(req, measurementInput)) },
@@ -77,18 +94,24 @@ const routes: Route[] = [
     const page = z.coerce.number().int().min(1).max(10000).parse(req.nextUrl.searchParams.get("page") || 1);
     const q = z.string().trim().max(100).parse(req.nextUrl.searchParams.get("q") || "");
     const limit = 30;
-    const where = q ? { OR: [{ name: { contains: q } }, { brand: { contains: q } }, { slug: { contains: q } }] } : {};
+    const comboProductIds = (await db.comboDraft.findMany({ where: { productId: { not: null } }, select: { productId: true } })).flatMap(combo => combo.productId ? [combo.productId] : []);
+    const where = { id: { notIn: comboProductIds }, tagBadge: { not: studioItemTag }, ...(q ? { OR: [{ name: { contains: q } }, { brand: { contains: q } }, { slug: { contains: q } }] } : {}) };
     const [products, total] = await db.$transaction([
       db.product.findMany({ where, include: { variants: { orderBy: [{ size: "asc" }, { color: "asc" }] } }, orderBy: { updatedAt: "desc" }, skip: (page - 1) * limit, take: limit }),
       db.product.count({ where })
     ]);
     return { products: products.map(presentProduct), pagination: { page, limit, total, pages: Math.ceil(total / limit) } };
   } },
-  { method: "POST", pattern: /^admin\/products$/, admin: true, run: async req => ({ product: await createProduct(await body(req, productInput)) }) },
-  { method: "PATCH", pattern: /^admin\/products\/([^/]+)$/, admin: true, run: async (req, _s, m) => {
-    const data = await body(req, z.object({ active: z.boolean().optional(), price: z.number().int().min(1000).max(100000000).optional() }).strict().refine(v => Object.keys(v).length > 0));
-    if (!await db.product.findUnique({ where: { id: m[1] } })) throw new ApiError(404, "NOT_FOUND", "Không tìm thấy sản phẩm.");
-    return { product: presentProduct(await db.product.update({ where: { id: m[1] }, data, include: { variants: true } })) };
+  { method: "POST", pattern: /^admin\/products$/, admin: true, run: async (req, _s, _m, user) => ({ product: await createProduct(await body(req, productInput), scopeForAdmin(user?.id || null)) }) },
+  { method: "PATCH", pattern: /^admin\/products\/([^/]+)$/, admin: true, run: async (req, _s, m, user) => {
+    const data = await body(req, z.object({ active: z.boolean().optional(), price: z.number().int().min(1000).max(100000000).optional(), category: category.optional(), subcategory: z.string().trim().min(1).max(80).nullable().optional(), fit: z.string().trim().min(1).max(80).nullable().optional() }).strict().refine(v => Object.keys(v).length > 0));
+    const current = await db.product.findUnique({ where: { id: m[1] } });
+    if (!current) throw new ApiError(404, "NOT_FOUND", "Không tìm thấy sản phẩm.");
+    const nextCategory = (data.category || current.category) as ProductGroup;
+    const scope = scopeForAdmin(user?.id || null);
+    const next = { ...data, ...(data.subcategory !== undefined ? { subcategory: await assertTaxonomySelection(scope, nextCategory, "SUBCATEGORY", data.subcategory) || null } : {}), ...(data.fit !== undefined ? { fit: await assertTaxonomySelection(scope, nextCategory, "FIT", data.fit) || null } : {}) };
+    if (data.category && data.category !== current.category) { next.subcategory = null; next.fit = null; }
+    return { product: presentProduct(await db.product.update({ where: { id: m[1] }, data: next, include: { variants: true } })) };
   } },
   { method: "PATCH", pattern: /^admin\/variants\/([^/]+)$/, admin: true, run: async (req, _s, m) => {
     const data = await body(req, z.object({ stock: z.number().int().min(0).max(100000), expectedStock: z.number().int().min(0) }).strict());

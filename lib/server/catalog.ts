@@ -4,7 +4,9 @@ import { z } from "zod";
 import { db } from "./db";
 import { ApiError } from "./http";
 import { category, productInput } from "./validation";
-import { studioCategories } from "../studio";
+import { StudioSnapshot, studioCategories, studioItemTag } from "../studio";
+import { assertTaxonomySelection } from "./product-taxonomy";
+import type { ProductGroup } from "../product-taxonomy";
 
 export function presentProduct(product: Product & { variants: ProductVariant[] }) {
   const available = product.variants.filter(v => v.stock > 0);
@@ -21,9 +23,15 @@ const filters = z.object({
 
 export async function listProducts(params: URLSearchParams) {
   const f = filters.parse(Object.fromEntries(params));
+  const publishedComboIds = (await db.comboDraft.findMany({
+    where: { productId: { not: null } },
+    select: { productId: true }
+  })).flatMap(combo => combo.productId ? [combo.productId] : []);
   const variant: Prisma.ProductVariantWhereInput = { size: f.size, color: f.color, ...(f.inStock === "true" ? { stock: { gt: 0 } } : {}) };
   const where: Prisma.ProductWhereInput = {
     active: true, category: f.category,
+    id: { notIn: publishedComboIds },
+    tagBadge: { not: studioItemTag },
     ...(f.q ? { OR: [ { name: { contains: f.q } }, { brand: { contains: f.q } }, { style: { contains: f.q } } ] } : {}),
     price: { gte: f.minPrice, lte: f.maxPrice },
     ...(f.size || f.color || f.inStock === "true" ? { variants: { some: variant } } : {}),
@@ -36,6 +44,47 @@ export async function listProducts(params: URLSearchParams) {
   return { products: products.map(presentProduct), pagination: { page: f.page, limit: f.limit, total, pages: Math.ceil(total / f.limit) } };
 }
 
+export async function listPublishedCombos() {
+  const drafts = await db.comboDraft.findMany({
+    where: { productId: { not: null } },
+    orderBy: { updatedAt: "desc" },
+    take: 60
+  });
+  const productIds = drafts.flatMap(draft => draft.productId ? [draft.productId] : []);
+  const products = productIds.length ? await db.product.findMany({
+    where: { id: { in: productIds }, active: true, variants: { some: { stock: { gt: 0 } } } },
+    include: { variants: true }
+  }) : [];
+  const productById = new Map(products.map(product => [product.id, product]));
+  const itemIds = Array.from(new Set(drafts.flatMap(draft => (JSON.parse(draft.itemsJson) as StudioSnapshot[]).map(item => item.id))));
+  const componentProducts = itemIds.length ? await db.product.findMany({ where: { id: { in: itemIds } }, include: { variants: true } }) : [];
+  const componentById = new Map(componentProducts.map(product => [product.id, product]));
+
+  return { combos: drafts.flatMap(draft => {
+    if (!draft.productId) return [];
+    const product = productById.get(draft.productId);
+    if (!product) return [];
+    const items = JSON.parse(draft.itemsJson) as StudioSnapshot[];
+    return [{
+      id: product.id,
+      title: product.name,
+      styleName: draft.style || "Bộ phối của shop",
+      estimatedPrice: new Intl.NumberFormat("vi-VN").format(product.price) + "₫",
+      totalPrice: product.price,
+      image: product.image,
+      description: draft.description,
+      sizes: Array.from(new Set(product.variants.filter(variant => variant.stock > 0).map(variant => variant.size))),
+      items: items.map(item => ({
+        sku: item.id, id: item.id, name: item.name,
+        type: studioCategories[item.category] || item.category,
+        image: item.image, price: item.price,
+        priceFormatted: new Intl.NumberFormat("vi-VN").format(item.price) + "₫",
+        variants: componentById.get(item.id)?.variants || []
+      }))
+    }];
+  }) };
+}
+
 export async function getProduct(id: string) {
   const p = await db.product.findFirst({ where: { active: true, OR: [{ id }, { slug: id }] }, include: { variants: true, sizeGuide: true } });
   if (!p) throw new ApiError(404, "NOT_FOUND", "Không tìm thấy sản phẩm.");
@@ -45,8 +94,10 @@ export async function getProduct(id: string) {
   return { ...presentProduct(p), ...(draft ? { combo: { id: p.id, title: p.name, styleName: "Bộ phối của shop", estimatedPrice: new Intl.NumberFormat("vi-VN").format(p.price) + "₫", image: p.image, description: draft.description, items: items.map(i => ({ sku: i.id, id: i.id, name: i.name, type: studioCategories[i.category] || i.category, image: i.image, price: i.price, priceFormatted: new Intl.NumberFormat("vi-VN").format(i.price) + "₫", variants: componentProducts.find(p => p.id === i.id)?.variants || [] })) } } : {}) };
 }
 
-export async function createProduct(input: z.infer<typeof productInput>) {
+export async function createProduct(input: z.infer<typeof productInput>, scopeKey = "ADMIN_API") {
   const { variants, ...data } = input;
+  const subcategory = await assertTaxonomySelection(scopeKey, data.category as ProductGroup, "SUBCATEGORY", data.subcategory);
+  const fit = await assertTaxonomySelection(scopeKey, data.category as ProductGroup, "FIT", data.fit);
   const code = randomUUID();
-  return presentProduct(await db.product.create({ data: { ...data, slug: `${data.name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${code.slice(0, 8)}`, variants: { create: variants.map((v, i) => ({ ...v, sku: `FC-${code}-${i}` })) } }, include: { variants: true } }));
+  return presentProduct(await db.product.create({ data: { ...data, subcategory, fit, slug: `${data.name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${code.slice(0, 8)}`, variants: { create: variants.map((v, i) => ({ ...v, sku: `FC-${code}-${i}` })) } }, include: { variants: true } }));
 }
